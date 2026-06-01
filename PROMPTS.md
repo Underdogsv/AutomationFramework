@@ -10,10 +10,10 @@ Detailed mistake write-ups: [AI mistakes and reviewer corrections](#ai-mistakes-
 | Stage | Goal | Prompt / artifact |
 |-------|------|-------------------|
 | 1 | Test cases from User Story | [§1](#1-test-cases-stage-1) → `docs/test-cases.json` |
-| 2 | Automated tests (API + UI) | [§2](#2-api-tests-stage-2) · [§3](#3-ui-tests-stage-2) |
-| 3 | Failure → Jira (dry-run) | [§4](#4-failure--jira-stage-3) → `prompts/test-failure-to-jira-bug.md` |
+| 2 | Automated tests (API + UI + E2E) | [§2](#2-api-tests-stage-2) · [§3](#3-ui-tests-stage-2) · [§4](#4-e2e-smoke-tests) |
+| 3 | Failure → Jira (dry-run) | [§5](#5-failure--jira-stage-3) → `prompts/test-failure-to-jira-bug.md` |
 
-Jira MCP for AC import: `prompts/jira-ac-to-testcases.md`, `docs/mcp-setup.md`.
+**Jira / MCP (this POC):** prompt templates and setup docs are prepared for MCP-based AC import and Bug creation — see `prompts/jira-ac-to-testcases.md`, `docs/mcp-setup.md`. In this repo, cases were built from User Story / docx fallback with `jiraKey: LOCAL-SURVEY` (**no live Jira MCP session** was required to complete the POC).
 
 ---
 
@@ -27,7 +27,9 @@ Output: TestRail-style JSON (id, acRef, type, layer, preconditions, steps, expec
 NO visual/layout cases. API-first where possible.
 ```
 
-**Output:** `docs/test-cases.json` (19 regression cases).
+**Output:** `docs/test-cases.json` (20 regression cases).
+
+**With real Jira (optional):** use `prompts/jira-ac-to-testcases.md` + Atlassian MCP when your Cursor sandbox has a connected site.
 
 ---
 
@@ -38,9 +40,10 @@ Generate JUnit 5 + REST Assured tests against WireMock (api.baseUrl from Spring)
 Use docs/api-contract.md and LOCAL-SURVEY-TC-* in @DisplayName.
 Extend BaseApiTest. Tag: api.
 Verify request bodies and saved state where AC requires exact genreIds/movieIds — not only HTTP 200.
+Use WireMock scenarios where AC requires state change (onboarding once, default → personalized recommendations).
 ```
 
-**Also used:** `prompts/jira-ac-to-java-tests.md` when generating from Jira AC.
+**Also used:** `prompts/jira-ac-to-java-tests.md` when generating from AC / test-case JSON.
 
 ---
 
@@ -49,20 +52,39 @@ Verify request bodies and saved state where AC requires exact genreIds/movieIds 
 ```
 Playwright + POM (SurveyStepPage, MoviesStepPage) on fixtures/survey.html.
 Business logic only: Next enabled/disabled by genre count, 5 movies on step 2, skip dismisses survey.
-Extend BaseUiTest. English @DisplayName with AC + test case ids. Flat @Test methods, no @Nested.
-No colors, layout, fonts, or alignment checks.
+Extend BaseUiTest (UiTestConfig only — no WireMock). English @DisplayName with AC + test case ids.
+Flat @Test methods, no @Nested. No colors, layout, fonts, or alignment checks.
 ```
 
 ---
 
-## 4. Failure → Jira (Stage 3)
+## 4. E2E smoke tests
+
+```
+Generate e2e.tests.SurveyE2ETest extending BaseE2ETest (E2eTestConfig: WireMock + Playwright).
+One test combines browser survey path with API verification in the same class:
+  1) GET recommendations (default) on profile-recommendation-scenario
+  2) UI: openSurvey(), 3 genres, Next, 5 movies, Finish enabled
+  3) API: POST vod-preferences with same genreIds/movieIds (fixture does not HTTP-post — test submits after UI)
+  4) GET recommendations (personalized, basedOnGenreIds)
+Second test: UI Skip + API skip + GET default recommendations.
+Tag: e2e (+ regression/smoke as needed). @Execution(SAME_THREAD) + resetWireMockScenarios().
+Run: ./gradlew e2eTest
+```
+
+**Output:** `e2e.tests.SurveyE2ETest` — cases `LOCAL-SURVEY-TC-E2E-01`, `LOCAL-SURVEY-TC-E2E-02`.
+
+---
+
+## 5. Failure → Jira (Stage 3)
 
 ```
 LlmBugReportGenerator (stub) + JiraIssuePublisher (dry-run).
-TestFailureReportingExtension on API/UI base tests. Parse testCaseId from @DisplayName.
+TestFailureReportingExtension on BaseApiTest / BaseUiTest / BaseE2ETest. Parse testCaseId from @DisplayName.
 ```
 
-Full MCP flow: `prompts/test-failure-to-jira-bug.md`.
+**This POC:** dry-run JSON in logs (`jira.dryRun=true`).  
+**Optional with Jira:** prompt template in `prompts/test-failure-to-jira-bug.md` (MCP create Bug when Atlassian MCP is configured).
 
 ---
 
@@ -107,10 +129,10 @@ Role: **Prompt Engineer** (clear constraints, contract-first) and **Reviewer** (
 |---|---|
 | **Original AI output** | GET on `profile-personalized` → `source=personalized` with no prior save or default baseline. |
 | **Why incorrect** | AC-6: recommendations must **change** after preferences; static stub does not prove causality. |
-| **Correction prompt** | *Show default after skip vs personalized after save; stateful onboarding for survey-once.* |
-| **Final decision** | Skip → `source=default`; save chain → `e2e_savePreferences_thenPersonalizedRecommendations()`; `ProfileOnboardingApiTest` + WireMock **scenarios** for `surveyRequired` once. Case `LOCAL-SURVEY-TC-P2` / skip path in JSON. |
+| **Correction prompt** | *Show default after skip vs personalized after save; WireMock scenario on profile-recommendation-scenario; E2E UI + API in SurveyE2ETest.* |
+| **Final decision** | `RecommendationsApiTest.savePreferences_shouldChangeRecommendationsFromDefaultToPersonalized()` (scenario); `SurveyE2ETest` (browser + API); skip → default in API/E2E. `ProfileOnboardingApiTest` for survey-once (AC-1). |
 
-*Related fixes:* skip → default recs covered in API (`RecommendationsApiTest`); UI skip only dismisses fixture (AC-4 UI), recs validated at API layer.
+*Related fixes:* skip → default recs covered in API (`RecommendationsApiTest`); UI skip only dismisses fixture (AC-4 UI), recs validated at API/E2E layer.
 
 ### Reviewer checklist
 

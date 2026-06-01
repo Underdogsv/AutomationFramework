@@ -9,7 +9,7 @@ Mock POC for the profile interest survey: **API-first** tests (WireMock), **UI l
 | [docs/api-contract.md](docs/api-contract.md) | WireMock API contract |
 | [docs/ui-layer.md](docs/ui-layer.md) | Playwright / POM / base classes |
 | [docs/ai-jira-integration.md](docs/ai-jira-integration.md) | Failure → Jira pipeline |
-| [docs/mcp-setup.md](docs/mcp-setup.md) · [docs/jira-mcp-workflow.md](docs/jira-mcp-workflow.md) | Jira MCP |
+| [docs/mcp-setup.md](docs/mcp-setup.md) · [docs/jira-mcp-workflow.md](docs/jira-mcp-workflow.md) | Jira MCP (optional; templates in repo) |
 | [AI-STRATEGY.md](AI-STRATEGY.md) | Scaling pattern to ads |
 
 ---
@@ -89,7 +89,7 @@ Flat packages: `api`, `ui`, `e2e`, `configs`, `helpers`, `common`.
 | **2** | Automate API + UI | Java tests — [jira-ac-to-java-tests.md](prompts/jira-ac-to-java-tests.md) |
 | **3** | Fail → bug report | `helpers/*` — [test-failure-to-jira-bug.md](prompts/test-failure-to-jira-bug.md) |
 
-1. Jira MCP or User Story → update `test-cases.json` (review: [PROMPTS.md](PROMPTS.md)).
+1. User Story or Jira MCP (when configured) → update `test-cases.json` (review: [PROMPTS.md](PROMPTS.md)). This POC used docx/`LOCAL-SURVEY` fallback.
 2. Generate/update tests from JSON + `api-contract.md`.
 3. `./gradlew regressionTest` or `apiTest` / `uiTest` / `e2eTest`.
 4. On failure: dry-run Jira JSON; Allure locally for UI screenshots.
