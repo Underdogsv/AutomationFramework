@@ -42,8 +42,9 @@ jobs:
 
       - name: Prepare Gradle home
         run: |
-          echo "GRADLE_USER_HOME=${RUNNER_TEMP}/gradle-home" >> "$GITHUB_ENV"
-          mkdir -p "$GRADLE_USER_HOME"
+          GRADLE_HOME="${RUNNER_TEMP}/gradle-home"
+          echo "GRADLE_USER_HOME=${GRADLE_HOME}" >> "$GITHUB_ENV"
+          mkdir -p "${GRADLE_HOME}"
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
