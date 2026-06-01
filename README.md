@@ -5,7 +5,7 @@ Mock POC for the profile interest survey: **API-first** tests (WireMock), **UI l
 | Doc | Purpose |
 |-----|---------|
 | [PROMPTS.md](PROMPTS.md) | Prompts + reviewer corrections |
-| [docs/test-cases.json](docs/test-cases.json) | 19 regression cases (TestRail-style) |
+| [docs/test-cases.json](docs/test-cases.json) | 20 regression cases (TestRail-style) |
 | [docs/api-contract.md](docs/api-contract.md) | WireMock API contract |
 | [docs/ui-layer.md](docs/ui-layer.md) | Playwright / POM / base classes |
 | [docs/ai-jira-integration.md](docs/ai-jira-integration.md) | Failure → Jira pipeline |
@@ -31,8 +31,8 @@ flowchart TB
     UI[BaseUiTest + Playwright POM]
     HTML[survey.html fixture]
   end
-  subgraph e2e_layer [E2E layer optional]
-    E2E[BaseE2ETest]
+  subgraph e2e_layer [E2E layer]
+    E2E[SurveyE2ETest + BaseE2ETest]
   end
   subgraph outputs [On failure / report]
     Ext[TestFailureReportingExtension]
@@ -49,9 +49,11 @@ flowchart TB
   E2E --> UI
   API --> Ext
   UI --> Ext
+  E2E --> Ext
   Ext --> JiraDry
   API --> Allure
   UI --> Allure
+  E2E --> Allure
 ```
 
 | Layer | Technology | Role |
@@ -62,7 +64,7 @@ flowchart TB
 | Reporting | `helpers` + Allure | Fail → LLM stub → Jira JSON; HTML report |
 | CI | GitHub Actions | JUnit Checks; Allure local only |
 
-Flat packages: `api`, `ui`, `e2e`, `configs`, `helpers`, `common` — not `com.teamrotator.qa.*`.
+Flat packages: `api`, `ui`, `e2e`, `configs`, `helpers`, `common`.
 
 ### Packages
 
@@ -89,7 +91,7 @@ Flat packages: `api`, `ui`, `e2e`, `configs`, `helpers`, `common` — not `com.t
 
 1. Jira MCP or User Story → update `test-cases.json` (review: [PROMPTS.md](PROMPTS.md)).
 2. Generate/update tests from JSON + `api-contract.md`.
-3. `./gradlew regressionTest` or `apiTest` / `uiTest`.
+3. `./gradlew regressionTest` or `apiTest` / `uiTest` / `e2eTest`.
 4. On failure: dry-run Jira JSON; Allure locally for UI screenshots.
 
 ---
@@ -99,7 +101,7 @@ Flat packages: `api`, `ui`, `e2e`, `configs`, `helpers`, `common` — not `com.t
 | `test-cases.json` | In code / Allure |
 |-------------------|------------------|
 | `jiraKey` | `@Epic("LOCAL-SURVEY")` |
-| `layer` | `@Feature("api")` / `"ui"` / future `"e2e"` |
+| `layer` | `@Feature("api")` / `"ui"` / `"e2e"` |
 | `acRef` | `@Story("AC-2")` |
 | `id` | `@Description("testCaseId: …")`, `@DisplayName` |
 | `expectedResult` | Asserted behaviour (see `notes` → test method) |
@@ -130,7 +132,7 @@ Run: `./gradlew e2eTest`. Fixture does not HTTP-post to backend; test submits pr
 
 ### Helper tests (full `test` only)
 
-`FailureContextFactoryTest`, `ReportingPipelineTest` — infrastructure; not in `apiTest` / `uiTest`.
+`FailureContextFactoryTest`, `ReportingPipelineTest` — infrastructure; not in `apiTest` / `uiTest` / `e2eTest` (run via `./gradlew test` or `regressionTest` for `ReportingPipelineTest`).
 
 ---
 
@@ -185,7 +187,7 @@ Default `reporting.onFailure=true`. Disable: `./gradlew test -Dreporting.onFailu
 | Trigger | Runs |
 |---------|------|
 | Push / PR → `main` | `apiTest` |
-| Manual **Run workflow** | Choose suite: `api`, `ui`, `smoke`, `regression`, `all` |
+| Manual **Run workflow** | Choose suite: `api`, `ui`, `e2e`, `smoke`, `regression`, `all` |
 
 Checks show JUnit summary. Allure: run locally after failure. CI uses `-Dreporting.onFailure=false`.
 
@@ -197,7 +199,7 @@ Checks show JUnit summary. Allure: run locally after failure. CI uses `-Dreporti
 |-----|----------|
 | `api` | `apiTest` |
 | `ui` | `uiTest` |
-| `regression` | `regressionTest` |
+| `regression` | `regressionTest` (includes `@Tag(regression)` on API, UI, E2E classes) |
 | `smoke` | `smokeTest` |
 | `e2e` | `e2eTest` |
 | `reporting` | Helper pipeline test |
