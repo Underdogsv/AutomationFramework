@@ -3,35 +3,37 @@
 ## Architecture
 
 ```
-JUnit failure → FailureContext → LlmBugReportGenerator → JiraIssuePublisher
-                                                      ↘ dry-run (default)
-                                                      ↘ POST /rest/api/3/issue
+JUnit test failed
+    → TestFailureReportingExtension (api.tests / ui.tests via BaseApiTest)
+    → FailureContextFactory
+    → LlmBugReportGenerator (stub by default)
+    → JiraIssuePublisher (dry-run logs JSON)
 ```
 
-## Java module
+Optional: use [prompts/test-failure-to-jira-bug.md](../prompts/test-failure-to-jira-bug.md) with Atlassian MCP to create a real Bug in Jira.
 
-`src/test/java/org/example/reporting/`
+## Java module (`helpers`)
 
 | Class | Role |
 |-------|------|
-| `FailureContext` | testName, testCaseId, jiraKey, message, API body |
-| `LlmBugReportGenerator` | stub (`llm.stub=true`) or future OpenAI HTTP |
-| `JiraIssuePublisher` | dry-run logs JSON; live needs env vars |
+| `FailureContext` | testName, testCaseId, jiraKey, message, API body, stack |
+| `FailureContextFactory` | Builds context from JUnit `ExtensionContext` |
+| `TestFailureReportingExtension` | `TestWatcher` on failed tests |
+| `LlmBugReportGenerator` | Stub (`llm.stub=true`) or future OpenAI HTTP |
+| `JiraIssuePublisher` | Dry-run logs JSON; live publish not implemented in POC |
+| `ReportingPipelineTest` | Manual demo of the pipeline (`@Tag reporting`) |
 
-## MCP alternative (Cursor)
+## Configuration (Gradle / CLI)
 
-After local test failure, prompt:
+| Property | Default | Meaning |
+|----------|---------|---------|
+| `reporting.onFailure` | `true` | Call pipeline on test failure |
+| `jira.dryRun` | `true` | Log JSON instead of HTTP POST |
+| `llm.stub` | `true` | Stub bug summary |
+| `jira.key` | `LOCAL-SURVEY` | Epic / story key in reports |
+| `jira.projectKey` | `QA` | Target Jira project |
 
-```
-Using Atlassian MCP, create a Bug in project QA linked to LOCAL-SURVEY.
-Summary: [from FailureContext]
-Steps: ...
-Do not include tokens or PII.
-```
-
-Use MCP for dev; use Java dry-run for reproducible CI proof.
-
-## Enable live Jira
+## Enable live Jira (future)
 
 ```bash
 export JIRA_BASE_URL=https://your-domain.atlassian.net
@@ -40,7 +42,9 @@ export JIRA_API_TOKEN=...
 ./gradlew test -Djira.dryRun=false -Dllm.stub=true
 ```
 
+Live `JiraIssuePublisher.publish()` requires implementation beyond this POC.
+
 ## Security
 
 - Never send Authorization headers or PII to LLM.
-- Default `jira.dryRun=true` in `build.gradle`.
+- Defaults are safe for CI: dry-run + stub.

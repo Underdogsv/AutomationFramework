@@ -1,8 +1,9 @@
 plugins {
     id 'java'
+    id 'io.qameta.allure' version '2.12.0'
 }
 
-group = 'org.example'
+group = 'com.teamrotator.qa'
 version = '1.0-SNAPSHOT'
 
 java {
@@ -20,17 +21,93 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testImplementation 'io.rest-assured:rest-assured:5.4.0'
     testImplementation 'org.wiremock:wiremock-standalone:3.3.1'
+    testImplementation 'com.microsoft.playwright:playwright:1.58.0'
     testImplementation 'com.squareup.okhttp3:okhttp:4.12.0'
     testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.16.1'
+    testImplementation 'org.springframework:spring-context:6.1.14'
+    testImplementation 'org.springframework:spring-test:6.1.14'
+    testImplementation 'jakarta.xml.bind:jakarta.xml.bind-api:2.3.3'
+    testImplementation 'org.glassfish.jaxb:jaxb-runtime:2.3.3'
+    testImplementation 'io.qameta.allure:allure-junit5:2.29.0'
+    testImplementation 'io.qameta.allure:allure-java-commons:2.29.0'
 }
 
-test {
-    useJUnitPlatform()
-    systemProperty 'api.baseUrl', System.getProperty('api.baseUrl', 'http://localhost:8089')
-    systemProperty 'jira.dryRun', System.getProperty('jira.dryRun', 'true')
-    systemProperty 'llm.stub', System.getProperty('llm.stub', 'true')
-    testLogging {
+allure {
+    version.set('2.29.0')
+}
+
+tasks.named('allureReport') {
+    doFirst {
+        delete layout.buildDirectory.dir('reports/allure-report/allureReport')
+    }
+}
+
+def configureTestTask = { Test task ->
+    task.testClassesDirs = sourceSets.test.output.classesDirs
+    task.classpath = sourceSets.test.runtimeClasspath
+    task.useJUnitPlatform()
+    task.testLogging {
         events 'failed'
         exceptionFormat 'full'
     }
+    task.systemProperty 'api.baseUrl', System.getProperty('api.baseUrl', 'http://localhost:8089')
+    task.systemProperty 'jira.dryRun', System.getProperty('jira.dryRun', 'true')
+    task.systemProperty 'llm.stub', System.getProperty('llm.stub', 'true')
+    task.systemProperty 'ui.headless', System.getProperty('ui.headless', 'true')
+    task.systemProperty 'reporting.onFailure', System.getProperty('reporting.onFailure', 'true')
+    task.systemProperty 'jira.key', System.getProperty('jira.key', 'LOCAL-SURVEY')
+    task.systemProperty 'jira.projectKey', System.getProperty('jira.projectKey', 'QA')
+}
+
+tasks.named('test', Test) {
+    configureTestTask(it)
+    description = 'All tests'
+}
+
+tasks.register('apiTest', Test) {
+    configureTestTask(it)
+    group = 'verification'
+    description = 'API layer'
+    useJUnitPlatform { includeTags 'api' }
+}
+
+tasks.register('uiTest', Test) {
+    configureTestTask(it)
+    group = 'verification'
+    description = 'UI layer (Playwright, parallel methods via ThreadLocal)'
+    useJUnitPlatform { includeTags 'ui' }
+}
+
+tasks.register('smokeTest', Test) {
+    configureTestTask(it)
+    group = 'verification'
+    description = 'Smoke suite'
+    useJUnitPlatform { includeTags 'smoke' }
+}
+
+tasks.register('regressionTest', Test) {
+    configureTestTask(it)
+    group = 'verification'
+    description = 'Regression suite'
+    useJUnitPlatform { includeTags 'regression' }
+}
+
+tasks.register('layeredTest') {
+    group = 'verification'
+    description = 'API + UI: ./gradlew layeredTest --parallel'
+    dependsOn apiTest, uiTest
+}
+
+tasks.register('playwrightInstall', JavaExec) {
+    group = 'verification'
+    description = 'Install Chromium for Playwright UI tests'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass.set('com.microsoft.playwright.CLI')
+    args('install', 'chromium')
+}
+
+uiTest.dependsOn playwrightInstall
+
+if (System.getProperty('skipUiTests', 'false') == 'true') {
+    uiTest.enabled = false
 }

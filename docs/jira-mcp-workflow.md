@@ -4,7 +4,7 @@ No Jira instance in this repo. Cases use **`LOCAL-SURVEY`** in `docs/test-cases.
 
 When you have Atlassian Cloud:
 
-1. Add Atlassian Rovo MCP to Cursor (`mcp.json` — see Atlassian docs).
-2. Connect via **Settings → Tools & MCP**.
-3. Run `prompts/jira-ac-to-testcases.md` against your story key.
-4. Update `docs/test-cases.json` with real `jiraKey`.
+1. Follow [mcp-setup.md](mcp-setup.md).
+2. Run `prompts/jira-ac-to-testcases.md` against your story key.
+3. Run `prompts/jira-ac-to-java-tests.md` to generate/update Java tests.
+4. On failure: `prompts/test-failure-to-jira-bug.md`.

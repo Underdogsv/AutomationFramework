@@ -37,23 +37,32 @@ Extend BaseApiTest. Tags: api.
 | Hardcoded localhost:8089 | `BaseApiTest` sets dynamic WireMock port |
 | Confused "exactly 3" vs "min 3" | Assert 400 only for 2 genres |
 
-## 4. UI mock tests (POM + MockSurveyView)
+## 4. UI tests (Playwright + POM)
 
 **Prompt:**
 ```
-Create Page Object for survey with conditional elements: overlay (one-time), next enabled if genres>=3, skip while survey visible.
-Implement MockSurveyView and JUnit tests without Playwright or HTML fixtures.
+Generate Playwright UI tests with Page Objects (SurveyStepPage, MoviesStepPage).
+Use fixtures/survey.html. Test business logic only: Next enabled when >=3 genres, movies step, skip dismisses survey.
+Extend ui.tests.BaseUiTest. English @DisplayName with AC refs and LOCAL-SURVEY-TC-* ids. No @Nested. No layout/color tests.
 ```
 
-**AI-FIX:** Removed Playwright and survey.html; tests assert POM rules only.
+**AI mistakes & fixes:**
+| Issue | Fix |
+|-------|-----|
+| Mock-only POM without browser | Current POC uses Playwright + `survey.html` |
+| `@Nested` GenreStep groups | Flat `@Test` methods in `SurveyFlowUiTest` |
+| Wrong AC on skip test (visibility only) | `skipDismissesSurvey` + API tests for default recs (AC-4) |
 
 ## 5. Failure → Jira (Stage 3)
 
 **Prompt:**
 ```
 Java LlmBugReportGenerator stub + JiraIssuePublisher dry-run.
-Build Jira REST v3 issue JSON from BugReportDto.
+TestFailureReportingExtension as JUnit TestWatcher on BaseApiTest.
+Build Jira REST v3 issue JSON from BugReportDto. Parse testCaseId from @DisplayName.
 ```
+
+See `prompts/test-failure-to-jira-bug.md` for MCP workflow.
 
 ## Metrics (estimate)
 

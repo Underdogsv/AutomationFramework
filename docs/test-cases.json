@@ -7,7 +7,7 @@
   "cases": [
     {
       "id": "LOCAL-SURVEY-TC-P1",
-      "acRef": "AC-1,AC-2,AC-5,AC-6",
+      "acRef": "AC-2,AC-3,AC-5,AC-6",
       "title": "Save 3 genres and 5 movies — personalized recommendations",
       "type": "positive",
       "layer": "api",
@@ -54,19 +54,56 @@
     {
       "id": "LOCAL-SURVEY-TC-UI1",
       "acRef": "AC-2",
-      "title": "Next button enabled with 3 genres",
+      "title": "Next button state by genre count",
       "type": "boundary",
-      "layer": "ui-mock",
+      "layer": "ui",
       "priority": "P1",
       "steps": [
+        "Open survey with 0 genres",
         "Select 2 genres",
-        "Select 3 genres"
+        "Select 3 genres",
+        "Uncheck to 2 genres"
       ],
       "expected": [
-        "#next disabled",
-        "#next enabled"
+        "#next disabled at 0 and 2",
+        "#next enabled at 3",
+        "#next disabled after uncheck to 2"
       ],
-      "notes": "MockSurveyView + SurveyPage POM, no browser"
+      "notes": "SurveyFlowUiTest: nextIsDisabledOnInitialLoad, nextIsDisabledWhenOnlyTwoGenresSelected, nextIsEnabledWhenThreeGenresSelected, nextIsDisabledAfterUncheckingBelowMinimum"
+    },
+    {
+      "id": "LOCAL-SURVEY-TC-UI2",
+      "acRef": "AC-3",
+      "title": "Movies step and genre-based movie list",
+      "type": "positive",
+      "layer": "ui",
+      "priority": "P1",
+      "steps": [
+        "Select 3 genres and click Next",
+        "Select 1 genre and click Next"
+      ],
+      "expected": [
+        "Movies step visible",
+        "Only movies matching selected genres shown",
+        "Finish disabled until 5 movies selected"
+      ],
+      "notes": "SurveyFlowUiTest: moviesStepAppearsAfterGenresAndNext, moviesAreFilteredBySelectedGenres, userCanSelectFiveMoviesAndFinish"
+    },
+    {
+      "id": "LOCAL-SURVEY-TC-UI3",
+      "acRef": "AC-4",
+      "title": "Skip dismisses survey UI",
+      "type": "positive",
+      "layer": "ui",
+      "priority": "P1",
+      "steps": [
+        "Click Skip on genre step"
+      ],
+      "expected": [
+        "Genre step hidden",
+        "Skipped confirmation shown"
+      ],
+      "notes": "Full AC-4 default recommendations covered by api.tests; SurveyFlowUiTest.skipDismissesSurvey"
     }
   ]
 }

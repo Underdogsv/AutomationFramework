@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head><meta charset="UTF-8"><title>Survey</title></head>
+<body data-testid="survey-root">
+  <div id="step-genres" data-testid="survey-step" data-step="genres">
+    <h1>Оберіть жанри</h1>
+    <label><input type="checkbox" class="genre" value="1"> Драма</label>
+    <label><input type="checkbox" class="genre" value="2"> Комедія</label>
+    <label><input type="checkbox" class="genre" value="3"> Трилер</label>
+    <label><input type="checkbox" class="genre" value="4"> Фантастика</label>
+    <button id="next" disabled>Далі</button>
+    <button id="skip">Пропустити</button>
+  </div>
+  <div id="step-movies" data-testid="survey-step" data-step="movies" hidden>
+    <h1>Оберіть 5 фільмів</h1>
+    <label class="movie-row" data-genres="1,2"><input type="checkbox" class="movie" value="101"> Фільм 1</label>
+    <label class="movie-row" data-genres="1,3"><input type="checkbox" class="movie" value="102"> Фільм 2</label>
+    <label class="movie-row" data-genres="2,3"><input type="checkbox" class="movie" value="103"> Фільм 3</label>
+    <label class="movie-row" data-genres="3,4"><input type="checkbox" class="movie" value="104"> Фільм 4</label>
+    <label class="movie-row" data-genres="1,4"><input type="checkbox" class="movie" value="105"> Фільм 5</label>
+    <label class="movie-row" data-genres="2,4"><input type="checkbox" class="movie" value="106"> Фільм 6</label>
+    <label class="movie-row" data-genres="4"><input type="checkbox" class="movie" value="107"> Фільм 7</label>
+    <button id="finish" disabled>Завершити</button>
+  </div>
+  <div id="step-skipped" data-testid="survey-step" data-step="skipped" hidden>
+    <p id="skipped-message">Опитування пропущено</p>
+  </div>
+  <script>
+    const nextBtn = document.getElementById('next');
+    const finishBtn = document.getElementById('finish');
+    const genres = document.querySelectorAll('.genre');
+    const movies = document.querySelectorAll('.movie');
+    const movieRows = document.querySelectorAll('.movie-row');
+    const stepGenres = document.getElementById('step-genres');
+    const stepMovies = document.getElementById('step-movies');
+    const stepSkipped = document.getElementById('step-skipped');
+
+    function selectedGenreValues() {
+      return [...genres].filter(g => g.checked).map(g => g.value);
+    }
+
+    function updateNextState() {
+      nextBtn.disabled = selectedGenreValues().length < 3;
+    }
+
+    genres.forEach(g => g.addEventListener('change', updateNextState));
+
+    function filterMoviesByGenres() {
+      const selected = selectedGenreValues();
+      movieRows.forEach(row => {
+        const rowGenres = row.dataset.genres.split(',');
+        const match = rowGenres.some(id => selected.includes(id));
+        row.hidden = !match;
+        if (!match) row.querySelector('.movie').checked = false;
+      });
+      updateFinishState();
+    }
+
+    function updateFinishState() {
+      const visibleChecked = [...movies].filter(m => {
+        const row = m.closest('.movie-row');
+        return !row.hidden && m.checked;
+      }).length;
+      finishBtn.disabled = visibleChecked < 5;
+    }
+
+    movies.forEach(m => m.addEventListener('change', updateFinishState));
+
+    nextBtn.addEventListener('click', () => {
+      filterMoviesByGenres();
+      stepGenres.hidden = true;
+      stepMovies.hidden = false;
+    });
+
+    document.getElementById('skip').addEventListener('click', () => {
+      stepGenres.hidden = true;
+      stepMovies.hidden = true;
+      stepSkipped.hidden = false;
+    });
+  </script>
+</body>
+</html>
