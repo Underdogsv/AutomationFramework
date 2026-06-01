@@ -106,6 +106,15 @@ tasks.register('playwrightInstall', JavaExec) {
     args('install', 'chromium')
 }
 
+tasks.register('playwrightInstallDeps', JavaExec) {
+    group = 'verification'
+    description = 'Install OS dependencies for Playwright (CI: run with sudo if needed)'
+    dependsOn playwrightInstall
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass.set('com.microsoft.playwright.CLI')
+    args('install-deps', 'chromium')
+}
+
 uiTest.dependsOn playwrightInstall
 
 if (System.getProperty('skipUiTests', 'false') == 'true') {

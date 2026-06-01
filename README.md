@@ -164,6 +164,33 @@ See [docs/ai-jira-integration.md](docs/ai-jira-integration.md).
 
 ---
 
+## CI (GitHub Actions)
+
+Workflow [`.github/workflows/tests.yml`](.github/workflows/tests.yml) runs tests on `ubuntu-latest` with Java 17.
+
+**Automatic (push / PR to `main`):** runs `apiTest` only (fast gate, no Playwright).
+
+**Manual:** Actions → **Tests** → **Run workflow** → choose **suite**:
+
+| Suite | Gradle task |
+|-------|-------------|
+| `api` | `apiTest` |
+| `ui` | `uiTest` |
+| `smoke` | `smokeTest` |
+| `regression` | `regressionTest` |
+| `all` | `test` |
+
+Results appear under **Checks** as JUnit summary (not Allure HTML). On failure, inspect logs in the workflow run; for steps, attachments, and traceability run Allure locally:
+
+```bash
+./gradlew regressionTest allureReport
+./gradlew allureServe
+```
+
+CI sets `-Dreporting.onFailure=false` to avoid Jira dry-run noise in logs.
+
+---
+
 ## Tags (`Constants.Tags`)
 
 - Layers: `api`, `ui`, `reporting`

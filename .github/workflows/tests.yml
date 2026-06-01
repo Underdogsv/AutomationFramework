@@ -1,0 +1,81 @@
+name: Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Test suite to run
+        required: true
+        default: api
+        type: choice
+        options:
+          - api
+          - ui
+          - smoke
+          - regression
+          - all
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Resolve suite
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "SUITE=${{ inputs.suite }}" >> "$GITHUB_ENV"
+          else
+            echo "SUITE=api" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install Playwright (browsers and OS deps)
+        if: env.SUITE == 'ui' || env.SUITE == 'smoke' || env.SUITE == 'regression' || env.SUITE == 'all'
+        run: |
+          chmod +x gradlew
+          ./gradlew playwrightInstall --no-daemon
+          sudo ./gradlew playwrightInstallDeps --no-daemon
+
+      - name: Run tests
+        run: |
+          chmod +x gradlew
+          GRADLE_PROPS="-Dreporting.onFailure=false -Dui.headless=true"
+          case "$SUITE" in
+            api)        ./gradlew apiTest $GRADLE_PROPS --no-daemon ;;
+            ui)         ./gradlew uiTest $GRADLE_PROPS --no-daemon ;;
+            smoke)      ./gradlew smokeTest $GRADLE_PROPS --no-daemon ;;
+            regression) ./gradlew regressionTest $GRADLE_PROPS --no-daemon ;;
+            all)        ./gradlew test $GRADLE_PROPS --no-daemon ;;
+            *)          echo "Unknown suite: $SUITE" && exit 1 ;;
+          esac
+
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: build/test-results/**/*.xml
+          check_name: Test results (${{ env.SUITE }})
+          comment_mode: off
