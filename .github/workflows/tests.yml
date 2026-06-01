@@ -61,6 +61,8 @@ jobs:
           sudo ./gradlew playwrightInstallDeps --no-daemon
 
       - name: Run tests
+        id: tests
+        continue-on-error: true
         run: |
           chmod +x gradlew
           GRADLE_PROPS="-Dreporting.onFailure=false -Dui.headless=true"
@@ -74,6 +76,21 @@ jobs:
             *)          echo "Unknown suite: $SUITE" && exit 1 ;;
           esac
 
+      - name: Generate Allure report
+        if: always()
+        run: |
+          chmod +x gradlew
+          ./gradlew allureReport --no-daemon
+
+      - name: Upload Allure report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: build/reports/allure-report/allureReport
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
@@ -81,3 +98,40 @@ jobs:
           files: build/test-results/**/*.xml
           check_name: Test results (${{ env.SUITE }})
           comment_mode: off
+
+      - name: Fail if tests failed
+        if: steps.tests.outcome == 'failure'
+        run: exit 1
+
+  deploy-allure:
+    needs: test
+    if: always() && needs.test.result != 'cancelled' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+
+    steps:
+      - name: Download Allure report
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-report
+          path: allure-report
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: allure-report
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

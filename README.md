@@ -62,7 +62,7 @@ flowchart TB
 | UI | Playwright + `ui.pom` | Business logic on local HTML (no WireMock in context) |
 | E2E | `E2eTestConfig` | API + UI when both needed (`BaseE2ETest`) |
 | Reporting | `helpers` + Allure | Fail → LLM stub → Jira JSON; HTML report |
-| CI | GitHub Actions | JUnit Checks; Allure local only |
+| CI | GitHub Actions | JUnit Checks; Allure → Pages on `main` |
 
 Flat packages: `api`, `ui`, `e2e`, `configs`, `helpers`, `common`.
 
@@ -145,7 +145,7 @@ Run: `./gradlew e2eTest`. Fixture does not HTTP-post to backend; test submits pr
 | UI | `fixtures/survey.html` | Production UI |
 | Jira / LLM | Dry-run / stub | Live create / OpenAI |
 | UI asserts | enabled/disabled, steps | Layout, colors |
-| CI | JUnit in Actions | Allure in Actions |
+| CI | JUnit Checks + Allure on GitHub Pages (`main` only) | Allure on PR runs (artifact only) |
 
 ---
 
@@ -189,7 +189,21 @@ Default `reporting.onFailure=true`. Disable: `./gradlew test -Dreporting.onFailu
 | Push / PR → `main` | `apiTest` |
 | Manual **Run workflow** | Choose suite: `api`, `ui`, `e2e`, `smoke`, `regression`, `all` |
 
-Checks show JUnit summary. Allure: run locally after failure. CI uses `-Dreporting.onFailure=false`.
+**Checks:** JUnit summary in the Actions tab.  
+**Allure:** generated after every run (`allureReport`), even when tests fail.
+
+| Where | When |
+|-------|------|
+| [GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site#publishing-with-a-custom-github-actions-workflow) | Push or manual run on **`main`** only (not PRs) |
+| Workflow **Artifacts** → `allure-report` | Every run (incl. PRs), kept 14 days |
+
+### One-time repo setup (Pages)
+
+1. **Settings → Pages → Build and deployment → Source:** `GitHub Actions`
+2. Push to `main` or run workflow manually with suite `regression` / `all` for a full report
+3. Open: `https://<org>.github.io/<repo>/` (also linked from the `github-pages` environment after deploy)
+
+CI uses `-Dreporting.onFailure=false`.
 
 ---
 
