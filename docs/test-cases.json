@@ -1,0 +1,72 @@
+{
+  "jiraKey": "LOCAL-SURVEY",
+  "jiraUrl": "https://example.atlassian.net/browse/LOCAL-SURVEY",
+  "source": "docx-fallback",
+  "generatedAt": "2026-06-01",
+  "feature": "Опитувальник зацікавленостей нового профілю",
+  "cases": [
+    {
+      "id": "LOCAL-SURVEY-TC-P1",
+      "acRef": "AC-1,AC-2,AC-5,AC-6",
+      "title": "Save 3 genres and 5 movies — personalized recommendations",
+      "type": "positive",
+      "layer": "api",
+      "priority": "P0",
+      "steps": [
+        "POST vod-preferences with 3 genres and 5 movies",
+        "GET recommendations"
+      ],
+      "expected": [
+        "POST 200",
+        "GET source=personalized"
+      ]
+    },
+    {
+      "id": "LOCAL-SURVEY-TC-P2",
+      "acRef": "AC-4",
+      "title": "Skip survey — default recommendations",
+      "type": "positive",
+      "layer": "api",
+      "priority": "P0",
+      "steps": [
+        "POST skipped=true",
+        "GET recommendations"
+      ],
+      "expected": [
+        "POST 200 skipped=true",
+        "GET source=default"
+      ]
+    },
+    {
+      "id": "LOCAL-SURVEY-TC-N1",
+      "acRef": "AC-2",
+      "title": "Less than 3 genres — 400",
+      "type": "negative",
+      "layer": "api",
+      "priority": "P0",
+      "steps": [
+        "POST with 2 genreIds"
+      ],
+      "expected": [
+        "HTTP 400 MIN_GENRES_REQUIRED"
+      ]
+    },
+    {
+      "id": "LOCAL-SURVEY-TC-UI1",
+      "acRef": "AC-2",
+      "title": "Next button enabled with 3 genres",
+      "type": "boundary",
+      "layer": "ui-mock",
+      "priority": "P1",
+      "steps": [
+        "Select 2 genres",
+        "Select 3 genres"
+      ],
+      "expected": [
+        "#next disabled",
+        "#next enabled"
+      ],
+      "notes": "MockSurveyView + SurveyPage POM, no browser"
+    }
+  ]
+}
