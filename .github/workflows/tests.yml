@@ -11,6 +11,7 @@ on:
         options:
           - api
           - ui
+          - e2e
           - smoke
           - regression
           - all
@@ -53,7 +54,7 @@ jobs:
           fi
 
       - name: Install Playwright (browsers and OS deps)
-        if: env.SUITE == 'ui' || env.SUITE == 'smoke' || env.SUITE == 'regression' || env.SUITE == 'all'
+        if: env.SUITE == 'ui' || env.SUITE == 'e2e' || env.SUITE == 'smoke' || env.SUITE == 'regression' || env.SUITE == 'all'
         run: |
           chmod +x gradlew
           ./gradlew playwrightInstall --no-daemon
@@ -66,6 +67,7 @@ jobs:
           case "$SUITE" in
             api)        ./gradlew apiTest $GRADLE_PROPS --no-daemon ;;
             ui)         ./gradlew uiTest $GRADLE_PROPS --no-daemon ;;
+            e2e)        ./gradlew e2eTest $GRADLE_PROPS --no-daemon ;;
             smoke)      ./gradlew smokeTest $GRADLE_PROPS --no-daemon ;;
             regression) ./gradlew regressionTest $GRADLE_PROPS --no-daemon ;;
             all)        ./gradlew test $GRADLE_PROPS --no-daemon ;;

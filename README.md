@@ -74,7 +74,7 @@ Flat packages: `api`, `ui`, `e2e`, `configs`, `helpers`, `common` — not `com.t
 | `api.tests` | `BaseApiTest`, `ProfileOnboardingApiTest`, `VodPreferencesApiTest`, `RecommendationsApiTest` |
 | `ui` | `UiTestConfig` (Playwright only) |
 | `ui.tests` | `BaseUiTest`, `AbstractPlaywrightSupport`, `SurveyFlowUiTest` |
-| `e2e.tests` | `BaseE2ETest` (API + UI context) |
+| `e2e.tests` | `BaseE2ETest`, `SurveyE2ETest` (Playwright + API) |
 | `helpers` | Failure reporting + unit tests for pipeline |
 
 ---
@@ -117,6 +117,17 @@ Flat packages: `api`, `ui`, `e2e`, `configs`, `helpers`, `common` — not `com.t
 
 `SurveyFlowUiTest` — Next by genre count (0–4), movies step, 5 movies, skip. See [docs/ui-layer.md](docs/ui-layer.md).
 
+### E2E coverage
+
+`SurveyE2ETest` on `BaseE2ETest` — browser survey path + WireMock API in one test:
+
+| Case | Method | Flow |
+|------|--------|------|
+| E2E-01 | `completeSurveyInBrowser_thenApiReflectsPersonalizedRecommendations` | GET default → UI 3 genres + 5 movies → POST prefs → GET personalized |
+| E2E-02 | `skipSurveyInBrowser_thenApiReturnsDefaultRecommendations` | UI Skip → POST skip → GET default |
+
+Run: `./gradlew e2eTest`. Fixture does not HTTP-post to backend; test submits preferences via API after UI (documented in class javadoc).
+
 ### Helper tests (full `test` only)
 
 `FailureContextFactoryTest`, `ReportingPipelineTest` — infrastructure; not in `apiTest` / `uiTest`.
@@ -147,6 +158,7 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 17)
 | API | `./gradlew apiTest` |
 | UI | `./gradlew playwrightInstall uiTest` |
 | Regression | `./gradlew regressionTest` |
+| E2E | `./gradlew playwrightInstall e2eTest` |
 | Smoke | `./gradlew smokeTest` |
 | API + UI tasks | `./gradlew layeredTest --parallel` |
 | Everything | `./gradlew test` |
@@ -187,7 +199,7 @@ Checks show JUnit summary. Allure: run locally after failure. CI uses `-Dreporti
 | `ui` | `uiTest` |
 | `regression` | `regressionTest` |
 | `smoke` | `smokeTest` |
-| `e2e` | Reserved for `BaseE2ETest` classes |
+| `e2e` | `e2eTest` |
 | `reporting` | Helper pipeline test |
 
 HTTP codes: `Constants.Http.OK`, `BAD_REQUEST`, `NOT_FOUND`.

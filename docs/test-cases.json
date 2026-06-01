@@ -3,7 +3,7 @@
   "jiraUrl": "https://example.atlassian.net/browse/LOCAL-SURVEY",
   "source": "regression-expansion",
   "generatedAt": "2026-06-02",
-  "caseCount": 19,
+  "caseCount": 20,
   "feature": "Profile personalization onboarding (interest survey)",
   "format": "TestRail-compatible",
   "cases": [
@@ -304,22 +304,38 @@
     },
     {
       "id": "LOCAL-SURVEY-TC-E2E-01",
-      "acRef": "AC-1,AC-5,AC-6",
-      "title": "End-to-end: new profile, complete survey via API, personalized recommendations",
+      "acRef": "AC-3,AC-5,AC-6",
+      "title": "E2E: complete survey in browser then API shows personalized recommendations",
+      "priority": "P0",
+      "type": "e2e",
+      "layer": "E2E",
+      "preconditions": "WireMock scenario profile-recommendation-scenario; Playwright + E2eTestConfig.",
+      "steps": [
+        "GET recommendations (default)",
+        "UI: select 3 genres, Next, select 5 movies, Finish enabled",
+        "API: POST vod-preferences with genreIds [1,2,3] and movieIds [101..105]",
+        "GET recommendations (personalized)"
+      ],
+      "expectedResult": "UI path completes; API returns default then personalized with basedOnGenreIds [1,2,3] and saved movie itemIds.",
+      "automationCandidate": true,
+      "automationNotes": "e2e.tests.SurveyE2ETest.completeSurveyInBrowser_thenApiReflectsPersonalizedRecommendations"
+    },
+    {
+      "id": "LOCAL-SURVEY-TC-E2E-02",
+      "acRef": "AC-4,AC-6",
+      "title": "E2E: skip survey in browser then API default recommendations",
       "priority": "P1",
       "type": "e2e",
       "layer": "E2E",
-      "preconditions": "Mock backend; client can call profile, preferences, and recommendations APIs.",
+      "preconditions": "survey.html fixture; profile-default for recommendations stub.",
       "steps": [
-        "Create new profile",
-        "Confirm surveyRequired=true",
-        "POST vod-preferences with 3 genres and 5 movies",
-        "Confirm surveyRequired=false",
+        "UI: open survey and click Skip",
+        "API: POST vod-preferences skipped=true",
         "GET recommendations"
       ],
-      "expectedResult": "Onboarding shows survey once. Saved genre/movie IDs are accepted. Recommendations return personalized source after completion.",
+      "expectedResult": "Skipped confirmation in UI; API source=default.",
       "automationCandidate": true,
-      "automationNotes": "Compose ProfileOnboardingApiTest + RecommendationsApiTest; full browser E2E optional future work"
+      "automationNotes": "e2e.tests.SurveyE2ETest.skipSurveyInBrowser_thenApiReturnsDefaultRecommendations"
     }
   ]
 }

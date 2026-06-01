@@ -2,7 +2,7 @@
 
 Packages: `ui.tests`, `ui.pom`, `ui.driver`, `ui.config`, `ui.UiTestConfig`.
 
-UI tests **do not** load WireMock or `ProfileApiService` — they use [`UiTestConfig`](../src/test/java/ui/UiTestConfig.java) only. Mixed API+UI flows belong in `e2e.tests.BaseE2ETest` (not used yet in this POC).
+UI tests **do not** load WireMock or `ProfileApiService` — they use [`UiTestConfig`](../src/test/java/ui/UiTestConfig.java) only. Mixed API+UI flows: `e2e.tests.SurveyE2ETest` on [`BaseE2ETest`](../src/test/java/e2e/tests/BaseE2ETest.java) (`E2eTestConfig` loads WireMock + Playwright).
 
 ## Base classes
 

@@ -78,6 +78,13 @@ tasks.register('uiTest', Test) {
     useJUnitPlatform { includeTags 'ui' }
 }
 
+tasks.register('e2eTest', Test) {
+    configureTestTask(it)
+    group = 'verification'
+    description = 'E2E (Playwright + WireMock API in one flow)'
+    useJUnitPlatform { includeTags 'e2e' }
+}
+
 tasks.register('smokeTest', Test) {
     configureTestTask(it)
     group = 'verification'
@@ -116,6 +123,7 @@ tasks.register('playwrightInstallDeps', JavaExec) {
 }
 
 uiTest.dependsOn playwrightInstall
+e2eTest.dependsOn playwrightInstall
 
 if (System.getProperty('skipUiTests', 'false') == 'true') {
     uiTest.enabled = false
