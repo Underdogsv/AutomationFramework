@@ -7,7 +7,8 @@ Mock profiles (fixed IDs in stubs):
 | `profileId` | Usage |
 |-------------|--------|
 | `profile-new-created` | `POST /v1/profile` + onboarding scenario (AC-1) |
-| `profile-personalized` | Saved preferences + personalized recommendations |
+| `profile-recommendation-scenario` | AC-6 scenario: default → personalized after save |
+| `profile-personalized` | Static GET prefs/recs (legacy stub) |
 | `profile-default` | Skip flow → default recommendations |
 | `profile-unknown` | 404 on vod-preferences |
 
@@ -111,13 +112,22 @@ Recommendation list (AC-6).
 ```json
 {
   "source": "personalized",
-  "itemIds": [101, 102, 103, 104, 105]
+  "itemIds": [101, 102, 103, 104, 105],
+  "basedOnGenreIds": [1, 2, 3]
 }
 ```
 
 | `source` | When (mock) |
 |----------|-------------|
-| `personalized` | `profile-personalized` or after valid save chain |
+| `default` | Before preferences saved on `profile-recommendation-scenario` (scenario **Started**) |
+| `personalized` | After valid `POST .../vod-preferences` on same profile (scenario **PreferencesSaved**) |
+| `personalized` | Static stub for `profile-personalized` (legacy shortcut — not used for AC-6 proof test) |
 | `default` | `profile-default` after skip, or generic fallback profile |
 
-Implementation: `api.tests.RecommendationsApiTest`.
+WireMock scenario `RecommendationsPersonalization` on `profile-recommendation-scenario`:
+
+1. Initial GET → `source=default`, `itemIds=[1,2,3,4,5]`
+2. POST with ≥3 `genreIds` and 5 `movieIds` → `willSetStateTo(PreferencesSaved)`
+3. Subsequent GET → `source=personalized`, selected movie IDs, `basedOnGenreIds=[1,2,3]`
+
+Implementation: `api.tests.RecommendationsApiTest.savePreferences_shouldChangeRecommendationsFromDefaultToPersonalized`.

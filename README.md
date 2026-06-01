@@ -111,7 +111,7 @@ Flat packages: `api`, `ui`, `e2e`, `configs`, `helpers`, `common` — not `com.t
 |----|-------|--------|
 | AC-1 | `ProfileOnboardingApiTest` | `surveyRequired` once |
 | AC-5 | `VodPreferencesApiTest` | Exact `genreIds` / `movieIds` (verify + GET) |
-| AC-4, AC-6 | `RecommendationsApiTest` | Default vs personalized |
+| AC-4, AC-6 | `RecommendationsApiTest` | Skip → default; WireMock scenario default→personalized after save |
 
 ### UI coverage
 

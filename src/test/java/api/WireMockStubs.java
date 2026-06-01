@@ -9,12 +9,15 @@ import static com.github.tomakehurst.wiremock.client.WireMock.*;
 public final class WireMockStubs {
     private static final String ONBOARDING_SCENARIO = "SurveyOnboarding";
     private static final String SURVEY_COMPLETED = "SurveyCompleted";
+    private static final String RECOMMENDATIONS_SCENARIO = "RecommendationsPersonalization";
+    private static final String PREFERENCES_SAVED = "PreferencesSaved";
 
     private WireMockStubs() {
     }
 
     public static void configure(WireMockServer server) {
         configureProfileOnboarding(server);
+        configureRecommendationsPersonalization(server);
 
         server.stubFor(post(urlPathMatching("/v1/profile/profile-unknown/vod-preferences"))
                 .willReturn(aResponse()
@@ -115,6 +118,42 @@ public final class WireMockStubs {
                 .atPriority(3)
                 .withRequestBody(matchingJsonPath("$.genreIds[2]"))
                 .willSetStateTo(SURVEY_COMPLETED)
+                .willReturn(aResponse()
+                        .withStatus(Constants.Http.OK)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"profileId\":\"" + profileId + "\",\"saved\":true,\"skipped\":false}")));
+    }
+
+    private static void configureRecommendationsPersonalization(WireMockServer server) {
+        String profileId = Constants.Profiles.RECOMMENDATION_SCENARIO;
+        String recommendationsPath = "/v1/profile/" + profileId + "/recommendations";
+        String preferencesPath = "/v1/profile/" + profileId + "/vod-preferences";
+
+        server.stubFor(get(urlPathEqualTo(recommendationsPath))
+                .inScenario(RECOMMENDATIONS_SCENARIO)
+                .whenScenarioStateIs(Scenario.STARTED)
+                .atPriority(3)
+                .willReturn(aResponse()
+                        .withStatus(Constants.Http.OK)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"source\":\"default\",\"itemIds\":[1,2,3,4,5]}")));
+
+        server.stubFor(get(urlPathEqualTo(recommendationsPath))
+                .inScenario(RECOMMENDATIONS_SCENARIO)
+                .whenScenarioStateIs(PREFERENCES_SAVED)
+                .atPriority(3)
+                .willReturn(aResponse()
+                        .withStatus(Constants.Http.OK)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"source\":\"personalized\",\"itemIds\":[101,102,103,104,105],\"basedOnGenreIds\":[1,2,3]}")));
+
+        server.stubFor(post(urlPathEqualTo(preferencesPath))
+                .inScenario(RECOMMENDATIONS_SCENARIO)
+                .whenScenarioStateIs(Scenario.STARTED)
+                .atPriority(3)
+                .withRequestBody(matchingJsonPath("$.genreIds[2]"))
+                .withRequestBody(matchingJsonPath("$.movieIds[4]"))
+                .willSetStateTo(PREFERENCES_SAVED)
                 .willReturn(aResponse()
                         .withStatus(Constants.Http.OK)
                         .withHeader("Content-Type", "application/json")

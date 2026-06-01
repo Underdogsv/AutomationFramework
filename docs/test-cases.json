@@ -62,33 +62,34 @@
     {
       "id": "LOCAL-SURVEY-TC-API-03",
       "acRef": "AC-6",
-      "title": "Personalized recommendations after saved preferences",
+      "title": "Personalized recommendations after saved preferences (static stub — reference only)",
       "priority": "P0",
       "type": "positive",
       "layer": "API",
-      "preconditions": "Profile profile-personalized has mock state representing completed survey.",
+      "preconditions": "Profile profile-personalized static stub.",
       "steps": [
         "GET /v1/profile/profile-personalized/recommendations"
       ],
-      "expectedResult": "HTTP 200; source=personalized; itemIds include saved movie IDs [101,102,103,104,105].",
-      "automationCandidate": true,
-      "automationNotes": "api.tests.RecommendationsApiTest.getRecommendations_personalizedProfile_returnsPersonalizedSource"
+      "expectedResult": "HTTP 200; source=personalized. (Proof of state transition: see API-04 scenario test.)",
+      "automationCandidate": false,
+      "automationNotes": "Superseded by LOCAL-SURVEY-TC-API-04 / savePreferences_shouldChangeRecommendationsFromDefaultToPersonalized"
     },
     {
       "id": "LOCAL-SURVEY-TC-API-04",
-      "acRef": "AC-5,AC-6",
-      "title": "Save preferences then recommendations reflect saved data",
+      "acRef": "AC-6",
+      "title": "Save preferences changes recommendations from default to personalized",
       "priority": "P0",
       "type": "e2e",
       "layer": "API",
-      "preconditions": "WireMock mock backend is running.",
+      "preconditions": "WireMock scenario profile-recommendation-scenario; state reset before test.",
       "steps": [
-        "POST /v1/profile/{profileId}/vod-preferences with valid genreIds and movieIds",
-        "GET /v1/profile/{profileId}/recommendations"
+        "GET recommendations (before save)",
+        "POST vod-preferences with genreIds [1,2,3] and movieIds [101..105]",
+        "GET recommendations (after save)"
       ],
-      "expectedResult": "POST succeeds. Subsequent GET recommendations returns source=personalized with itemIds aligned to saved preferences (count and values per mock contract).",
+      "expectedResult": "Before POST: source=default. After POST: source=personalized, itemIds contain saved movies, basedOnGenreIds=[1,2,3].",
       "automationCandidate": true,
-      "automationNotes": "api.tests.RecommendationsApiTest.e2e_savePreferences_thenPersonalizedRecommendations"
+      "automationNotes": "api.tests.RecommendationsApiTest.savePreferences_shouldChangeRecommendationsFromDefaultToPersonalized"
     },
     {
       "id": "LOCAL-SURVEY-TC-API-05",

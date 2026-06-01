@@ -45,6 +45,7 @@ public final class Constants {
 
     public static final class Profiles {
         public static final String NEW_CREATED = "profile-new-created";
+        public static final String RECOMMENDATION_SCENARIO = "profile-recommendation-scenario";
         public static final String PERSONALIZED = "profile-personalized";
         public static final String DEFAULT = "profile-default";
         public static final String UNKNOWN = "profile-unknown";
