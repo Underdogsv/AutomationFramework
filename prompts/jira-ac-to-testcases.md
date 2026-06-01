@@ -1,27 +1,40 @@
 # Prompt: Jira AC → test cases
 
-Use with **Atlassian Rovo MCP** connected in Cursor.
+Use with **Atlassian Rovo MCP** in Cursor ([mcp-setup.md](../docs/mcp-setup.md)).
 
 ## Prompt template
 
 ```
 You are a senior QA engineer. Read Jira issue {{JIRA_KEY}} via MCP.
 
-1. Extract Acceptance Criteria from: AC field, Description, subtasks.
-2. Generate regression test cases in JSON for TMS import.
-3. Rules from assignment:
-   - Priority: API end-to-end; NO UI layout/color/position checks.
-   - UI only for business logic (e.g. button enabled/disabled).
-   - Types: positive, negative, boundary.
-   - Each case: id, acRef, title, type, layer (api|ui-logic), priority, steps, expected.
-   - Link jiraKey: {{JIRA_KEY}}.
+1. Extract Acceptance Criteria (AC field, Description, subtasks).
+2. Generate 15–20 regression cases in TestRail-compatible JSON for docs/test-cases.json.
 
-4. Cross-check API paths with docs/api-contract.md in this repo.
-5. Write output to docs/test-cases.json (merge or replace with approval).
+Each case must include:
+- id (e.g. LOCAL-SURVEY-TC-API-01)
+- title
+- priority (P0/P1/P2)
+- type: positive | negative | boundary | e2e
+- layer: API | UI | E2E
+- preconditions
+- steps (array)
+- expectedResult (string)
+- automationCandidate: true/false
+- acRef (e.g. AC-2)
+- notes (optional: target test method name)
 
-6. List gaps you added manually vs AC (if any).
+Rules:
+- API-first; mock via docs/api-contract.md paths
+- UI: business logic only (enabled/disabled, steps) — NO colors, layout, fonts, alignment
+- Cover: survey once (AC-1), min 3 genres, 5 movies, skip→default, save exact IDs, recommendations change
+
+3. Cross-check field names: genreIds, movieIds (not "genres").
+4. Merge into docs/test-cases.json with human review.
+5. List gaps vs AC.
 ```
 
-## Example (this repo fallback)
+## Fallback
 
-If MCP unavailable, paste User Story from docx and set `jiraKey: LOCAL-SURVEY`.
+If MCP unavailable: paste User Story, set `jiraKey: LOCAL-SURVEY`, `source: docx-fallback`.
+
+Workflow: [docs/jira-mcp-workflow.md](../docs/jira-mcp-workflow.md).

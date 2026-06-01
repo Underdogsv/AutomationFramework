@@ -43,8 +43,7 @@ public class PlaywrightFactory {
         };
 
         Browser browser = browserType.launch(new BrowserType.LaunchOptions()
-//                .setHeadless(props.isHeadless())
-                .setHeadless(false)
+                .setHeadless(props.isHeadless())
                 .setSlowMo(props.getSlowMo())
                 .setArgs(List.of(
                         "--disable-gpu",

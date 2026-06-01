@@ -2,7 +2,15 @@
 
 Mock POC for the profile interest survey: **API-first** tests (WireMock), **UI logic** tests (Playwright + POM), and an **AI-assisted** workflow (prompts, dry-run Jira, Allure).
 
-Related docs: [PROMPTS.md](PROMPTS.md), [AI-STRATEGY.md](AI-STRATEGY.md), [docs/test-cases.json](docs/test-cases.json), [docs/api-contract.md](docs/api-contract.md), [docs/ui-layer.md](docs/ui-layer.md), [docs/mcp-setup.md](docs/mcp-setup.md).
+| Doc | Purpose |
+|-----|---------|
+| [PROMPTS.md](PROMPTS.md) | Prompts + reviewer corrections |
+| [docs/test-cases.json](docs/test-cases.json) | 19 regression cases (TestRail-style) |
+| [docs/api-contract.md](docs/api-contract.md) | WireMock API contract |
+| [docs/ui-layer.md](docs/ui-layer.md) | Playwright / POM / base classes |
+| [docs/ai-jira-integration.md](docs/ai-jira-integration.md) | Failure → Jira pipeline |
+| [docs/mcp-setup.md](docs/mcp-setup.md) · [docs/jira-mcp-workflow.md](docs/jira-mcp-workflow.md) | Jira MCP |
+| [AI-STRATEGY.md](AI-STRATEGY.md) | Scaling pattern to ads |
 
 ---
 
@@ -15,15 +23,20 @@ flowchart TB
     TC[test-cases.json]
     Contract[api-contract.md]
   end
-  subgraph runtime [Test runtime]
-    WM[WireMock dynamic port]
-    API[api.tests + ProfileApiService]
-    UI[ui.tests + Playwright POM]
+  subgraph api_layer [API layer]
+    WM[WireMock + scenarios]
+    API[BaseApiTest + ProfileApiService]
+  end
+  subgraph ui_layer [UI layer]
+    UI[BaseUiTest + Playwright POM]
     HTML[survey.html fixture]
   end
-  subgraph outputs [On failure]
+  subgraph e2e_layer [E2E layer optional]
+    E2E[BaseE2ETest]
+  end
+  subgraph outputs [On failure / report]
     Ext[TestFailureReportingExtension]
-    Allure[Allure report + UI screenshot]
+    Allure[Allure + UI screenshot]
     JiraDry[Jira dry-run log]
   end
   Jira --> TC
@@ -32,6 +45,8 @@ flowchart TB
   Contract --> WM
   WM --> API
   HTML --> UI
+  E2E --> WM
+  E2E --> UI
   API --> Ext
   UI --> Ext
   Ext --> JiraDry
@@ -41,60 +56,70 @@ flowchart TB
 
 | Layer | Technology | Role |
 |-------|------------|------|
-| API | Spring + WireMock + Rest Assured | Mock backend; `ProfileApiService` |
-| UI | Playwright + `ui.pom` | Business logic on local HTML fixture |
-| Reporting | `helpers` + Allure | Fail → LLM stub → Jira JSON (dry-run); HTML report |
-| Config | `application.properties`, Gradle | Tags, headless, `jira.dryRun`, `reporting.onFailure` |
+| API | Spring + WireMock + Rest Assured | Profile create, onboarding, preferences, recommendations |
+| UI | Playwright + `ui.pom` | Business logic on local HTML (no WireMock in context) |
+| E2E | `E2eTestConfig` | API + UI when both needed (`BaseE2ETest`) |
+| Reporting | `helpers` + Allure | Fail → LLM stub → Jira JSON; HTML report |
+| CI | GitHub Actions | JUnit Checks; Allure local only |
 
-Stack follows flat packages (like SimpleTestproject): `api.tests`, `ui.tests`, `configs`, `helpers` — not `com.teamrotator.qa.*`.
+Flat packages: `api`, `ui`, `e2e`, `configs`, `helpers`, `common` — not `com.teamrotator.qa.*`.
 
 ### Packages
 
 | Package | Role |
 |---------|------|
-| `common` | `Constants` (HTTP codes, tags, survey rules, API paths) |
-| `configs` | `ApiProperties` (WireMock base URL) |
-| `api` | Spring config, `RestClient`, `WireMockStubs`, `RequestSpecProvider` |
-| `api.models` | `VodPreferencesPayload` |
-| `api.services` | `ProfileApiService` |
-| `api.tests` | `BaseApiTest`, API test classes |
-| `ui.config` | `UiProperties` |
-| `ui.driver` | `PlaywrightFactory` (ThreadLocal per parallel test) |
-| `ui.pom` | `SurveyStepPage`, `MoviesStepPage` |
-| `ui.tests` | `BaseUiTest`, `SurveyFlowUiTest` |
-| `helpers` | `TestFailureReportingExtension`, Jira/LLM dry-run |
-| `utils` | `FixtureUtils` |
+| `common` | `Constants` (HTTP, tags, survey rules, API paths) |
+| `configs` | `ApiProperties` → WireMock base URL |
+| `api` | `ApiTestConfig`, `WireMockStubs`, `RestClient`, services |
+| `api.tests` | `BaseApiTest`, `ProfileOnboardingApiTest`, `VodPreferencesApiTest`, `RecommendationsApiTest` |
+| `ui` | `UiTestConfig` (Playwright only) |
+| `ui.tests` | `BaseUiTest`, `AbstractPlaywrightSupport`, `SurveyFlowUiTest` |
+| `e2e.tests` | `BaseE2ETest` (API + UI context) |
+| `helpers` | Failure reporting + unit tests for pipeline |
 
 ---
 
-## AI workflow (TZ stages 1–3)
+## AI workflow (stages 1–3)
 
-| Stage | Goal | Artifacts | How to run in Cursor |
-|-------|------|-----------|----------------------|
-| **1** | Test cases from AC | `docs/test-cases.json` | [prompts/jira-ac-to-testcases.md](prompts/jira-ac-to-testcases.md) + Jira MCP ([mcp-setup](docs/mcp-setup.md)) |
-| **2** | Automate API + UI | Java tests, WireMock, POM | [prompts/jira-ac-to-java-tests.md](prompts/jira-ac-to-java-tests.md) |
-| **3** | Fail → bug report | `helpers/*`, prompts | Auto: `TestFailureReportingExtension`; manual: [test-failure-to-jira-bug.md](prompts/test-failure-to-jira-bug.md) |
+| Stage | Goal | Artifacts |
+|-------|------|-----------|
+| **1** | Test cases from AC | `docs/test-cases.json` — [jira-ac-to-testcases.md](prompts/jira-ac-to-testcases.md) |
+| **2** | Automate API + UI | Java tests — [jira-ac-to-java-tests.md](prompts/jira-ac-to-java-tests.md) |
+| **3** | Fail → bug report | `helpers/*` — [test-failure-to-jira-bug.md](prompts/test-failure-to-jira-bug.md) |
 
-End-to-end flow:
-
-1. Read Jira issue (MCP) or paste User Story → update `test-cases.json`.
-2. Generate/update tests from JSON + `api-contract.md` (human review required).
-3. `./gradlew regressionTest` (or `apiTest` / `uiTest`).
-4. On failure: extension logs `JIRA_DRY_RUN` JSON; optional MCP to create a real Bug; Allure shows screenshot for UI.
-
-Prompt log and AI mistakes: [PROMPTS.md](PROMPTS.md). Scaling to ads: [AI-STRATEGY.md](AI-STRATEGY.md).
+1. Jira MCP or User Story → update `test-cases.json` (review: [PROMPTS.md](PROMPTS.md)).
+2. Generate/update tests from JSON + `api-contract.md`.
+3. `./gradlew regressionTest` or `apiTest` / `uiTest`.
+4. On failure: dry-run Jira JSON; Allure locally for UI screenshots.
 
 ---
 
-## Traceability (Jira → tests → report)
+## Traceability
 
-| Source | Field | In code / report |
-|--------|-------|------------------|
-| `test-cases.json` | `jiraKey` | Allure `@Epic("LOCAL-SURVEY")` on base tests |
-| `test-cases.json` | `layer` | Allure `@Feature("api")` / `"ui"` |
-| `test-cases.json` | `acRef` | Allure `@Story("AC-2")` etc. |
-| `test-cases.json` | `id` | `@Description("testCaseId: …")`, `@DisplayName` |
-| `test-cases.json` | `notes` | Maps case id → test method name |
+| `test-cases.json` | In code / Allure |
+|-------------------|------------------|
+| `jiraKey` | `@Epic("LOCAL-SURVEY")` |
+| `layer` | `@Feature("api")` / `"ui"` / future `"e2e"` |
+| `acRef` | `@Story("AC-2")` |
+| `id` | `@Description("testCaseId: …")`, `@DisplayName` |
+| `expectedResult` | Asserted behaviour (see `notes` → test method) |
+| `automationCandidate` | `true` when automated in repo |
+
+### API coverage (high level)
+
+| AC | Class | Focus |
+|----|-------|--------|
+| AC-1 | `ProfileOnboardingApiTest` | `surveyRequired` once |
+| AC-5 | `VodPreferencesApiTest` | Exact `genreIds` / `movieIds` (verify + GET) |
+| AC-4, AC-6 | `RecommendationsApiTest` | Default vs personalized |
+
+### UI coverage
+
+`SurveyFlowUiTest` — Next by genre count (0–4), movies step, 5 movies, skip. See [docs/ui-layer.md](docs/ui-layer.md).
+
+### Helper tests (full `test` only)
+
+`FailureContextFactoryTest`, `ReportingPipelineTest` — infrastructure; not in `apiTest` / `uiTest`.
 
 ---
 
@@ -102,11 +127,12 @@ Prompt log and AI mistakes: [PROMPTS.md](PROMPTS.md). Scaling to ads: [AI-STRATE
 
 | Topic | In POC | Not covered |
 |-------|--------|-------------|
-| Backend | WireMock only | Real services / DB |
-| UI | `fixtures/survey.html` | Real app, profile creation (AC-1) |
-| Jira | Dry-run log by default | Live issue create (see `.env.example`) |
-| LLM | Stub summaries | Live OpenAI |
-| UI scope | Enabled/disabled, steps, skip | Layout, colors, positions |
+| Backend | WireMock (+ scenarios) | Real services |
+| AC-1 | API onboarding mock | Browser auto-show on real app |
+| UI | `fixtures/survey.html` | Production UI |
+| Jira / LLM | Dry-run / stub | Live create / OpenAI |
+| UI asserts | enabled/disabled, steps | Layout, colors |
+| CI | JUnit in Actions | Allure in Actions |
 
 ---
 
@@ -116,107 +142,65 @@ Prompt log and AI mistakes: [PROMPTS.md](PROMPTS.md). Scaling to ads: [AI-STRATE
 export JAVA_HOME=$(/usr/libexec/java_home -v 17)
 ```
 
-API only:
+| Goal | Command |
+|------|---------|
+| API | `./gradlew apiTest` |
+| UI | `./gradlew playwrightInstall uiTest` |
+| Regression | `./gradlew regressionTest` |
+| Smoke | `./gradlew smokeTest` |
+| API + UI tasks | `./gradlew layeredTest --parallel` |
+| Everything | `./gradlew test` |
 
-```bash
-./gradlew apiTest
-```
-
-UI (Playwright):
-
-```bash
-./gradlew playwrightInstall uiTest
-```
-
-Other suites:
-
-```bash
-./gradlew layeredTest --parallel
-./gradlew smokeTest
-./gradlew regressionTest
-```
-
-### Allure
-
-Generate report (output dir is cleaned automatically before each run):
+### Allure (local)
 
 ```bash
 ./gradlew regressionTest allureReport
-```
-
-Serve in browser:
-
-```bash
 ./gradlew allureServe
 ```
 
-Static HTML (no server): open `build/reports/allure-report/allureReport/index.html` in a browser.
+Report: `build/reports/allure-report/allureReport/index.html` (cleaned before each `allureReport`).
 
-### Reporting on failure
+### Failure reporting
 
-Enabled by default (`reporting.onFailure=true`). Parses `LOCAL-SURVEY-TC-*` from `@DisplayName`, logs Jira issue JSON (dry-run).
-
-```bash
-./gradlew test -Dreporting.onFailure=false
-```
-
-See [docs/ai-jira-integration.md](docs/ai-jira-integration.md).
+Default `reporting.onFailure=true`. Disable: `./gradlew test -Dreporting.onFailure=false`. Details: [docs/ai-jira-integration.md](docs/ai-jira-integration.md).
 
 ---
 
 ## CI (GitHub Actions)
 
-Workflow [`.github/workflows/tests.yml`](.github/workflows/tests.yml) runs tests on `ubuntu-latest` with Java 17.
+[`.github/workflows/tests.yml`](.github/workflows/tests.yml) — Java 17, `ubuntu-latest`.
 
-**Automatic (push / PR to `main`):** runs `apiTest` only (fast gate, no Playwright).
+| Trigger | Runs |
+|---------|------|
+| Push / PR → `main` | `apiTest` |
+| Manual **Run workflow** | Choose suite: `api`, `ui`, `smoke`, `regression`, `all` |
 
-**Manual:** Actions → **Tests** → **Run workflow** → choose **suite**:
+Checks show JUnit summary. Allure: run locally after failure. CI uses `-Dreporting.onFailure=false`.
 
-| Suite | Gradle task |
-|-------|-------------|
+---
+
+## Tags
+
+| Tag | Used for |
+|-----|----------|
 | `api` | `apiTest` |
 | `ui` | `uiTest` |
-| `smoke` | `smokeTest` |
 | `regression` | `regressionTest` |
-| `all` | `test` |
+| `smoke` | `smokeTest` |
+| `e2e` | Reserved for `BaseE2ETest` classes |
+| `reporting` | Helper pipeline test |
 
-Results appear under **Checks** as JUnit summary (not Allure HTML). On failure, inspect logs in the workflow run; for steps, attachments, and traceability run Allure locally:
-
-```bash
-./gradlew regressionTest allureReport
-./gradlew allureServe
-```
-
-CI sets `-Dreporting.onFailure=false` to avoid Jira dry-run noise in logs.
+HTTP codes: `Constants.Http.OK`, `BAD_REQUEST`, `NOT_FOUND`.
 
 ---
 
-## Tags (`Constants.Tags`)
+## Troubleshooting — Playwright (macOS)
 
-- Layers: `api`, `ui`, `reporting`
-- Suites: `smoke`, `regression`
-
-Use `Constants.Http.OK`, `Constants.Http.BAD_REQUEST`, `Constants.Http.NOT_FOUND` in API assertions.
-
----
-
-## UI layer
-
-- Class: `ui.tests.SurveyFlowUiTest` — flat `@Test` methods; each calls `openSurvey()`.
-- Parallel: JUnit concurrent + `PlaywrightFactory` ThreadLocal.
-- Headless default; debug: `./gradlew uiTest -Dui.headless=false`
-
-Details: [docs/ui-layer.md](docs/ui-layer.md).
-
----
-
-## Troubleshooting — Playwright on macOS
-
-If UI tests fail at browser launch with `TargetClosedError` or `SEGV_ACCERR`:
+`TargetClosedError` / `SEGV_ACCERR`:
 
 1. Java 17: `export JAVA_HOME=$(/usr/libexec/java_home -v 17)`
-2. Reinstall browsers: `./gradlew playwrightInstall uiTest`
-3. Clear cache if needed: `rm -rf ~/Library/Caches/ms-playwright/ && ./gradlew playwrightInstall`
-4. Prefer headless; headed: `./gradlew uiTest -Dui.headless=false`
-5. Apple Silicon: use **arm64** JDK
-6. API-only: `./gradlew apiTest` or `./gradlew test -DskipUiTests=true`
+2. `./gradlew playwrightInstall uiTest`
+3. `rm -rf ~/Library/Caches/ms-playwright/ && ./gradlew playwrightInstall`
+4. Headed debug: `./gradlew uiTest -Dui.headless=false`
+5. Apple Silicon: arm64 JDK
+6. API only: `./gradlew apiTest` or `./gradlew test -DskipUiTests=true`

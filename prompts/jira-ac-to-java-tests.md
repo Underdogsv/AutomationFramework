@@ -5,61 +5,59 @@ Use after [`jira-ac-to-testcases.md`](jira-ac-to-testcases.md) (or when `docs/te
 ## Prerequisites
 
 - Read `docs/test-cases.json`, `docs/api-contract.md`, `docs/ui-layer.md`
-- API base URL comes from WireMock via Spring (`configs.ApiProperties`), not hardcoded ports
-- Do **not** use `var` for locals; use explicit types
+- API base URL: `configs.ApiProperties` → WireMock (no hardcoded ports)
+- Explicit types in Java (no `var`)
 
 ## Prompt template
 
 ```
-You are a senior QA automation engineer working in this Java repo (mock POC).
+You are a senior QA automation engineer in this Java mock POC.
 
 Inputs:
-- docs/test-cases.json (cases with id, acRef, layer, steps, expected, notes)
+- docs/test-cases.json (id, acRef, layer, steps, expectedResult, automationCandidate, notes)
 - docs/api-contract.md
-- Existing packages: api.tests, api.services, api.models, api.WireMockStubs, ui.tests, ui.pom, helpers
 
 Task:
-1. For each case where layer is "api":
-   - Add or update a test method in api.tests (VodPreferencesApiTest or RecommendationsApiTest, or new class if needed).
-   - Extend api.tests.BaseApiTest; @Autowired ProfileApiService; no manual new ProfileApiClient().
-   - @Tag(Constants.Tags.API); add SMOKE/REGRESSION per case priority.
-   - @DisplayName in English: include case id (e.g. LOCAL-SURVEY-TC-P1) and acRef (e.g. AC-2).
+1. layer "API":
+   - api.tests.* extending BaseApiTest; @Autowired ProfileApiService
+   - ProfileOnboardingApiTest (AC-1), VodPreferencesApiTest (AC-5), RecommendationsApiTest (AC-4/6)
+   - @Tag(Constants.Tags.API); SMOKE/REGRESSION per priority
+   - @DisplayName: case id + AC; @Description("testCaseId: …")
+   - AC-5: WireMock verify exact POST body (equalToJson) + GET vod-preferences for saved IDs — not only 200/saved=true
 
-2. For each case where layer is "ui":
-   - Add or update methods in ui.tests.SurveyFlowUiTest (flat @Test methods, no @Nested).
-   - Extend ui.tests.BaseUiTest; call openSurvey() in each test; use ui.pom page objects.
-   - @Tag(Constants.Tags.UI); English @DisplayName with case id and acRef.
-   - NO layout/color/position assertions; business logic only (enabled/disabled, step visibility).
+2. layer "UI":
+   - ui.tests.SurveyFlowUiTest — flat @Test, extend BaseUiTest (NOT BaseApiTest)
+   - openSurvey() per test; ui.pom only — no locators in tests
+   - Business logic only: enabled/disabled, step visibility, 5 movies, skip
+   - NO layout/color/position
 
-3. WireMock:
-   - If a case needs a new stub, update api/WireMockStubs.java to match docs/api-contract.md.
-   - Keep stub priorities for skip vs min-3-genres vs 400.
+3. layer "E2E":
+   - e2e.tests extending BaseE2ETest when test needs API + browser in one class
 
-4. Traceability:
-   - Update "notes" in docs/test-cases.json with exact test method names.
-   - List any AC from acRef not covered and why (e.g. AC-1 needs real profile E2E).
+4. WireMock:
+   - Update api/WireMockStubs.java per contract; use scenarios for stateful flows (onboarding, default→personalized)
 
-5. Conventions:
-   - Constants from common.Constants (Http, Tags, Profiles, Survey, ApiPaths).
-   - Run mentally: ./gradlew apiTest && ./gradlew uiTest
+5. Traceability:
+   - Update test-cases.json "notes" with method names
+   - List uncovered AC with reason
 
-Output: changed Java files + updated docs/test-cases.json notes. Summarize gaps.
+Conventions: common.Constants; ./gradlew apiTest && ./gradlew uiTest
 ```
 
-## Package map (do not recreate com.teamrotator.*)
+## Package map
 
-| Layer | Package | Base class |
-|-------|---------|------------|
-| API tests | `api.tests` | `BaseApiTest` |
-| API client | `api.services` | `ProfileApiService` |
-| Payload | `api.models` | `VodPreferencesPayload` |
-| UI tests | `ui.tests` | `BaseUiTest` |
-| POM | `ui.pom` | `SurveyStepPage`, `MoviesStepPage` |
+| Layer | Package | Base class | Spring config |
+|-------|---------|------------|---------------|
+| API | `api.tests` | `BaseApiTest` | `ApiTestConfig` |
+| UI | `ui.tests` | `BaseUiTest` | `UiTestConfig` |
+| E2E | `e2e.tests` | `BaseE2ETest` | `E2eTestConfig` |
+| Service | `api.services` | `ProfileApiService` | — |
+| POM | `ui.pom` | `SurveyStepPage`, `MoviesStepPage` | — |
 
-## Anti-patterns (reject if AI suggests)
+## Anti-patterns
 
-- `org.example.*` or `com.teamrotator.qa.*` packages
-- Playwright locators inside test methods (use POM)
-- `@Nested` UI groups without strong reason
-- Hardcoded `http://localhost:8089`
-- UI tests for pixel/CSS/layout
+- `com.teamrotator.qa.*` / `org.example.*`
+- `BaseUiTest extends BaseApiTest` (outdated — UI must not load WireMock)
+- Hardcoded `localhost:8089`
+- UI layout/CSS asserts
+- `@Nested` without strong reason

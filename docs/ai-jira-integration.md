@@ -3,25 +3,33 @@
 ## Architecture
 
 ```
-JUnit test failed
-    → TestFailureReportingExtension (api.tests / ui.tests via BaseApiTest)
+JUnit test failed (api.tests or ui.tests)
+    → TestFailureReportingExtension
     → FailureContextFactory
     → LlmBugReportGenerator (stub by default)
     → JiraIssuePublisher (dry-run logs JSON)
 ```
 
-Optional: use [prompts/test-failure-to-jira-bug.md](../prompts/test-failure-to-jira-bug.md) with Atlassian MCP to create a real Bug in Jira.
+Attached on:
+
+- `api.tests.BaseApiTest` — API tests (Spring + WireMock)
+- `ui.tests.BaseUiTest` — UI tests (Playwright only; no WireMock in context)
+
+Optional: [prompts/test-failure-to-jira-bug.md](../prompts/test-failure-to-jira-bug.md) + Atlassian MCP to create a real Bug.
 
 ## Java module (`helpers`)
 
 | Class | Role |
 |-------|------|
 | `FailureContext` | testName, testCaseId, jiraKey, message, API body, stack |
-| `FailureContextFactory` | Builds context from JUnit `ExtensionContext` |
+| `FailureContextFactory` | Builds context; parses `LOCAL-SURVEY-TC-*` from `@DisplayName` |
 | `TestFailureReportingExtension` | `TestWatcher` on failed tests |
 | `LlmBugReportGenerator` | Stub (`llm.stub=true`) or future OpenAI HTTP |
-| `JiraIssuePublisher` | Dry-run logs JSON; live publish not implemented in POC |
-| `ReportingPipelineTest` | Manual demo of the pipeline (`@Tag reporting`) |
+| `JiraIssuePublisher` | Dry-run logs JSON; live HTTP not implemented in POC |
+| `FailureContextFactoryTest` | Unit tests for testCaseId parsing (runs in `./gradlew test`) |
+| `ReportingPipelineTest` | Pipeline smoke (`@Tag reporting`, `regression`, `smoke`) |
+
+Helper tests are **not** tagged `api` / `ui` — they run in the full `test` task and in `regressionTest` / `smokeTest` via `reporting` tag on `ReportingPipelineTest` only.
 
 ## Configuration (Gradle / CLI)
 
@@ -32,6 +40,8 @@ Optional: use [prompts/test-failure-to-jira-bug.md](../prompts/test-failure-to-j
 | `llm.stub` | `true` | Stub bug summary |
 | `jira.key` | `LOCAL-SURVEY` | Epic / story key in reports |
 | `jira.projectKey` | `QA` | Target Jira project |
+
+GitHub Actions sets `reporting.onFailure=false` to reduce log noise.
 
 ## Enable live Jira (future)
 

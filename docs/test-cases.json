@@ -1,109 +1,324 @@
 {
   "jiraKey": "LOCAL-SURVEY",
   "jiraUrl": "https://example.atlassian.net/browse/LOCAL-SURVEY",
-  "source": "docx-fallback",
-  "generatedAt": "2026-06-01",
-  "feature": "Опитувальник зацікавленостей нового профілю",
+  "source": "regression-expansion",
+  "generatedAt": "2026-06-02",
+  "caseCount": 19,
+  "feature": "Profile personalization onboarding (interest survey)",
+  "format": "TestRail-compatible",
   "cases": [
     {
-      "id": "LOCAL-SURVEY-TC-P1",
-      "acRef": "AC-2,AC-3,AC-5,AC-6",
-      "title": "Save 3 genres and 5 movies — personalized recommendations",
-      "type": "positive",
-      "layer": "api",
+      "id": "LOCAL-SURVEY-TC-AC1",
+      "acRef": "AC-1",
+      "title": "Survey required only once after new profile creation",
       "priority": "P0",
+      "type": "positive",
+      "layer": "API",
+      "preconditions": "WireMock mock backend is running; no prior preferences for a new profile.",
       "steps": [
-        "POST vod-preferences with 3 genres and 5 movies",
-        "GET recommendations"
+        "POST /v1/profile to create a new profile",
+        "GET /v1/profile/{profileId}/onboarding-status",
+        "POST /v1/profile/{profileId}/vod-preferences with 3 genres and 5 movies",
+        "GET /v1/profile/{profileId}/onboarding-status",
+        "GET /v1/profile/{profileId}/onboarding-status again"
       ],
-      "expected": [
-        "POST 200",
-        "GET source=personalized"
-      ]
+      "expectedResult": "After profile creation surveyRequired=true. After saving preferences surveyRequired=false. A repeated onboarding-status check still returns surveyRequired=false (survey shown only once).",
+      "automationCandidate": true,
+      "automationNotes": "api.tests.ProfileOnboardingApiTest.createNewProfile_shouldShowSurveyOnlyOnce"
     },
     {
-      "id": "LOCAL-SURVEY-TC-P2",
-      "acRef": "AC-4",
-      "title": "Skip survey — default recommendations",
-      "type": "positive",
-      "layer": "api",
+      "id": "LOCAL-SURVEY-TC-API-01",
+      "acRef": "AC-5",
+      "title": "POST vod-preferences persists exact genreIds and movieIds",
       "priority": "P0",
+      "type": "positive",
+      "layer": "API",
+      "preconditions": "Profile exists (e.g. profile-personalized). WireMock records request bodies.",
       "steps": [
-        "POST skipped=true",
-        "GET recommendations"
+        "POST /v1/profile/{profileId}/vod-preferences with genreIds [1,2,3], movieIds [101,102,103,104,105], skipped=false",
+        "Verify WireMock received the exact JSON body",
+        "GET /v1/profile/{profileId}/vod-preferences"
       ],
-      "expected": [
-        "POST 200 skipped=true",
-        "GET source=default"
-      ]
+      "expectedResult": "POST returns 200 with saved=true and skipped=false. Request body contains the exact genre and movie IDs submitted. GET returns the same genreIds and movieIds as saved preferences.",
+      "automationCandidate": true,
+      "automationNotes": "api.tests.VodPreferencesApiTest.savePreferences_withThreeGenres_returns200"
     },
     {
-      "id": "LOCAL-SURVEY-TC-N1",
+      "id": "LOCAL-SURVEY-TC-API-02",
+      "acRef": "AC-4,AC-6",
+      "title": "Skip survey via API and receive default recommendations",
+      "priority": "P0",
+      "type": "positive",
+      "layer": "API",
+      "preconditions": "Profile exists (e.g. profile-default).",
+      "steps": [
+        "POST /v1/profile/{profileId}/vod-preferences with skipped=true",
+        "GET /v1/profile/{profileId}/recommendations"
+      ],
+      "expectedResult": "POST returns 200 with skipped=true. Recommendations return source=default and a non-empty itemIds list.",
+      "automationCandidate": true,
+      "automationNotes": "api.tests.VodPreferencesApiTest.skipPreferences_returns200; api.tests.RecommendationsApiTest.getRecommendations_afterSkip_returnsDefaultSource"
+    },
+    {
+      "id": "LOCAL-SURVEY-TC-API-03",
+      "acRef": "AC-6",
+      "title": "Personalized recommendations after saved preferences",
+      "priority": "P0",
+      "type": "positive",
+      "layer": "API",
+      "preconditions": "Profile profile-personalized has mock state representing completed survey.",
+      "steps": [
+        "GET /v1/profile/profile-personalized/recommendations"
+      ],
+      "expectedResult": "HTTP 200; source=personalized; itemIds include saved movie IDs [101,102,103,104,105].",
+      "automationCandidate": true,
+      "automationNotes": "api.tests.RecommendationsApiTest.getRecommendations_personalizedProfile_returnsPersonalizedSource"
+    },
+    {
+      "id": "LOCAL-SURVEY-TC-API-04",
+      "acRef": "AC-5,AC-6",
+      "title": "Save preferences then recommendations reflect saved data",
+      "priority": "P0",
+      "type": "e2e",
+      "layer": "API",
+      "preconditions": "WireMock mock backend is running.",
+      "steps": [
+        "POST /v1/profile/{profileId}/vod-preferences with valid genreIds and movieIds",
+        "GET /v1/profile/{profileId}/recommendations"
+      ],
+      "expectedResult": "POST succeeds. Subsequent GET recommendations returns source=personalized with itemIds aligned to saved preferences (count and values per mock contract).",
+      "automationCandidate": true,
+      "automationNotes": "api.tests.RecommendationsApiTest.e2e_savePreferences_thenPersonalizedRecommendations"
+    },
+    {
+      "id": "LOCAL-SURVEY-TC-API-05",
       "acRef": "AC-2",
-      "title": "Less than 3 genres — 400",
+      "title": "Reject preferences with fewer than 3 genres (1 or 2 genreIds)",
+      "priority": "P0",
       "type": "negative",
-      "layer": "api",
-      "priority": "P0",
+      "layer": "API",
+      "preconditions": "Profile exists.",
       "steps": [
-        "POST with 2 genreIds"
+        "POST /v1/profile/{profileId}/vod-preferences with genreIds [1,2] and skipped=false",
+        "POST /v1/profile/{profileId}/vod-preferences with genreIds [1] and skipped=false"
       ],
-      "expected": [
-        "HTTP 400 MIN_GENRES_REQUIRED"
-      ]
+      "expectedResult": "Both requests return HTTP 400 with error=MIN_GENRES_REQUIRED; preferences are not saved.",
+      "automationCandidate": true,
+      "automationNotes": "api.tests.VodPreferencesApiTest.savePreferences_withTwoGenres_returns400; optional test for 1 genre"
     },
     {
-      "id": "LOCAL-SURVEY-TC-UI1",
+      "id": "LOCAL-SURVEY-TC-API-06",
+      "acRef": "AC-5",
+      "title": "Unknown profile returns 404 on vod-preferences",
+      "priority": "P1",
+      "type": "negative",
+      "layer": "API",
+      "preconditions": "Profile ID is not registered in mock (profile-unknown).",
+      "steps": [
+        "POST /v1/profile/profile-unknown/vod-preferences with valid payload"
+      ],
+      "expectedResult": "HTTP 404; error=PROFILE_NOT_FOUND.",
+      "automationCandidate": true,
+      "automationNotes": "api.tests.VodPreferencesApiTest.savePreferences_unknownProfile_returns404"
+    },
+    {
+      "id": "LOCAL-SURVEY-TC-UI-01",
       "acRef": "AC-2",
-      "title": "Next button state by genre count",
+      "title": "Next button disabled with zero genres selected",
+      "priority": "P0",
       "type": "boundary",
-      "layer": "ui",
-      "priority": "P1",
+      "layer": "UI",
+      "preconditions": "Survey fixture loaded (genre step visible).",
       "steps": [
-        "Open survey with 0 genres",
-        "Select 2 genres",
-        "Select 3 genres",
-        "Uncheck to 2 genres"
+        "Open survey page",
+        "Observe Next button without selecting any genre"
       ],
-      "expected": [
-        "#next disabled at 0 and 2",
-        "#next enabled at 3",
-        "#next disabled after uncheck to 2"
-      ],
-      "notes": "SurveyFlowUiTest: nextIsDisabledOnInitialLoad, nextIsDisabledWhenOnlyTwoGenresSelected, nextIsEnabledWhenThreeGenresSelected, nextIsDisabledAfterUncheckingBelowMinimum"
+      "expectedResult": "Selected genre count is 0. Next button is disabled.",
+      "automationCandidate": true,
+      "automationNotes": "ui.tests.SurveyFlowUiTest.nextIsDisabledOnInitialLoad"
     },
     {
-      "id": "LOCAL-SURVEY-TC-UI2",
+      "id": "LOCAL-SURVEY-TC-UI-02",
+      "acRef": "AC-2",
+      "title": "Next button disabled with one genre selected",
+      "priority": "P1",
+      "type": "boundary",
+      "layer": "UI",
+      "preconditions": "Survey fixture loaded (genre step visible).",
+      "steps": [
+        "Open survey page",
+        "Select exactly 1 genre",
+        "Observe Next button state"
+      ],
+      "expectedResult": "Selected genre count is 1. Next button remains disabled.",
+      "automationCandidate": true,
+      "automationNotes": "Gap: add ui.tests test mirroring 2-genre case with selectGenres(1)"
+    },
+    {
+      "id": "LOCAL-SURVEY-TC-UI-03",
+      "acRef": "AC-2",
+      "title": "Next button disabled with two genres selected",
+      "priority": "P0",
+      "type": "boundary",
+      "layer": "UI",
+      "preconditions": "Survey fixture loaded.",
+      "steps": [
+        "Open survey page",
+        "Select exactly 2 genres"
+      ],
+      "expectedResult": "Next button is disabled.",
+      "automationCandidate": true,
+      "automationNotes": "ui.tests.SurveyFlowUiTest.nextIsDisabledWhenOnlyTwoGenresSelected"
+    },
+    {
+      "id": "LOCAL-SURVEY-TC-UI-04",
+      "acRef": "AC-2",
+      "title": "Next button enabled with three genres selected",
+      "priority": "P0",
+      "type": "boundary",
+      "layer": "UI",
+      "preconditions": "Survey fixture loaded.",
+      "steps": [
+        "Open survey page",
+        "Select exactly 3 genres"
+      ],
+      "expectedResult": "Next button is enabled.",
+      "automationCandidate": true,
+      "automationNotes": "ui.tests.SurveyFlowUiTest.nextIsEnabledWhenThreeGenresSelected"
+    },
+    {
+      "id": "LOCAL-SURVEY-TC-UI-05",
+      "acRef": "AC-2",
+      "title": "Next button enabled with four genres selected",
+      "priority": "P1",
+      "type": "boundary",
+      "layer": "UI",
+      "preconditions": "Survey fixture loaded.",
+      "steps": [
+        "Open survey page",
+        "Select exactly 4 genres"
+      ],
+      "expectedResult": "Next button is enabled (minimum 3 satisfied).",
+      "automationCandidate": true,
+      "automationNotes": "ui.tests.SurveyFlowUiTest.nextIsEnabledWhenFourGenresSelected"
+    },
+    {
+      "id": "LOCAL-SURVEY-TC-UI-06",
+      "acRef": "AC-2",
+      "title": "Next button disabled again after dropping below 3 genres",
+      "priority": "P1",
+      "type": "boundary",
+      "layer": "UI",
+      "preconditions": "Survey fixture loaded.",
+      "steps": [
+        "Select 3 genres and confirm Next is enabled",
+        "Uncheck one genre to leave 2 selected"
+      ],
+      "expectedResult": "Next button becomes disabled when selected count is below 3.",
+      "automationCandidate": true,
+      "automationNotes": "ui.tests.SurveyFlowUiTest.nextIsDisabledAfterUncheckingBelowMinimum"
+    },
+    {
+      "id": "LOCAL-SURVEY-TC-UI-07",
       "acRef": "AC-3",
-      "title": "Movies step and genre-based movie list",
+      "title": "Movies step appears after 3 genres and Next",
+      "priority": "P0",
       "type": "positive",
-      "layer": "ui",
-      "priority": "P1",
+      "layer": "UI",
+      "preconditions": "Survey fixture loaded.",
       "steps": [
-        "Select 3 genres and click Next",
-        "Select 1 genre and click Next"
+        "Select 3 genres on step 1",
+        "Click Next"
       ],
-      "expected": [
-        "Movies step visible",
-        "Only movies matching selected genres shown",
-        "Finish disabled until 5 movies selected"
-      ],
-      "notes": "SurveyFlowUiTest: moviesStepAppearsAfterGenresAndNext, moviesAreFilteredBySelectedGenres, userCanSelectFiveMoviesAndFinish"
+      "expectedResult": "Genre step is hidden. Movies step is visible.",
+      "automationCandidate": true,
+      "automationNotes": "ui.tests.SurveyFlowUiTest.moviesStepAppearsAfterGenresAndNext"
     },
     {
-      "id": "LOCAL-SURVEY-TC-UI3",
-      "acRef": "AC-4",
-      "title": "Skip dismisses survey UI",
-      "type": "positive",
-      "layer": "ui",
+      "id": "LOCAL-SURVEY-TC-UI-08",
+      "acRef": "AC-3",
+      "title": "Movie list filtered by selected genres",
       "priority": "P1",
+      "type": "positive",
+      "layer": "UI",
+      "preconditions": "Survey fixture supports genre-tagged movies.",
       "steps": [
-        "Click Skip on genre step"
+        "Select genre combination A (e.g. indexes 0,1,2) and click Next",
+        "Note visible movie count",
+        "Return to genre step, select different combination B (e.g. 0,1,3) and click Next",
+        "Compare visible movie count"
       ],
-      "expected": [
-        "Genre step hidden",
-        "Skipped confirmation shown"
+      "expectedResult": "Visible movies on step 2 depend on selected genres; different genre sets produce different filtered lists.",
+      "automationCandidate": true,
+      "automationNotes": "ui.tests.SurveyFlowUiTest.moviesAreFilteredBySelectedGenres"
+    },
+    {
+      "id": "LOCAL-SURVEY-TC-UI-09",
+      "acRef": "AC-3",
+      "title": "Finish disabled when fewer than 5 movies selected",
+      "priority": "P0",
+      "type": "boundary",
+      "layer": "UI",
+      "preconditions": "User is on movies step (3 genres selected, Next clicked).",
+      "steps": [
+        "On movies step with 0 movies selected, check Finish",
+        "Select 4 movies",
+        "Check Finish again"
       ],
-      "notes": "Full AC-4 default recommendations covered by api.tests; SurveyFlowUiTest.skipDismissesSurvey"
+      "expectedResult": "Finish remains disabled until exactly 5 movies are selected.",
+      "automationCandidate": true,
+      "automationNotes": "Partial in SurveyFlowUiTest.userCanSelectFiveMoviesAndFinish (asserts disabled before 5); extend for explicit 4-movie case"
+    },
+    {
+      "id": "LOCAL-SURVEY-TC-UI-10",
+      "acRef": "AC-3",
+      "title": "Finish enabled when exactly 5 movies selected",
+      "priority": "P0",
+      "type": "boundary",
+      "layer": "UI",
+      "preconditions": "User is on movies step.",
+      "steps": [
+        "Select exactly 5 movies",
+        "Observe Finish button"
+      ],
+      "expectedResult": "Selected movie count is 5. Finish button is enabled.",
+      "automationCandidate": true,
+      "automationNotes": "ui.tests.SurveyFlowUiTest.userCanSelectFiveMoviesAndFinish"
+    },
+    {
+      "id": "LOCAL-SURVEY-TC-UI-11",
+      "acRef": "AC-4",
+      "title": "Skip dismisses survey without completing preferences",
+      "priority": "P0",
+      "type": "positive",
+      "layer": "UI",
+      "preconditions": "Survey fixture loaded on genre step.",
+      "steps": [
+        "Open survey page",
+        "Click Skip"
+      ],
+      "expectedResult": "Genre step is hidden. Skipped confirmation state is shown. (Default recommendations validated at API layer.)",
+      "automationCandidate": true,
+      "automationNotes": "ui.tests.SurveyFlowUiTest.skipDismissesSurvey"
+    },
+    {
+      "id": "LOCAL-SURVEY-TC-E2E-01",
+      "acRef": "AC-1,AC-5,AC-6",
+      "title": "End-to-end: new profile, complete survey via API, personalized recommendations",
+      "priority": "P1",
+      "type": "e2e",
+      "layer": "E2E",
+      "preconditions": "Mock backend; client can call profile, preferences, and recommendations APIs.",
+      "steps": [
+        "Create new profile",
+        "Confirm surveyRequired=true",
+        "POST vod-preferences with 3 genres and 5 movies",
+        "Confirm surveyRequired=false",
+        "GET recommendations"
+      ],
+      "expectedResult": "Onboarding shows survey once. Saved genre/movie IDs are accepted. Recommendations return personalized source after completion.",
+      "automationCandidate": true,
+      "automationNotes": "Compose ProfileOnboardingApiTest + RecommendationsApiTest; full browser E2E optional future work"
     }
   ]
 }

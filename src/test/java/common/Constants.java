@@ -19,6 +19,7 @@ public final class Constants {
         public static final String REPORTING = "reporting";
         public static final String SMOKE = "smoke";
         public static final String REGRESSION = "regression";
+        public static final String E2E = "e2e";
 
         private Tags() {
         }
@@ -33,7 +34,9 @@ public final class Constants {
     }
 
     public static final class ApiPaths {
+        public static final String CREATE_PROFILE = "/v1/profile";
         public static final String VOD_PREFERENCES = "/v1/profile/{profileId}/vod-preferences";
+        public static final String ONBOARDING_STATUS = "/v1/profile/{profileId}/onboarding-status";
         public static final String RECOMMENDATIONS = "/v1/profile/{profileId}/recommendations";
 
         private ApiPaths() {
@@ -41,6 +44,7 @@ public final class Constants {
     }
 
     public static final class Profiles {
+        public static final String NEW_CREATED = "profile-new-created";
         public static final String PERSONALIZED = "profile-personalized";
         public static final String DEFAULT = "profile-default";
         public static final String UNKNOWN = "profile-unknown";
