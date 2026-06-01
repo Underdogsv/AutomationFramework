@@ -190,7 +190,7 @@ Default `reporting.onFailure=true`. Disable: `./gradlew test -Dreporting.onFailu
 | Manual **Run workflow** | Choose suite: `api`, `ui`, `e2e`, `smoke`, `regression`, `all` |
 
 **Checks:** JUnit summary in the Actions tab.  
-**Allure:** generated after every run (`allureReport`), even when tests fail.
+**Allure:** one Gradle invocation (`<suite> allureReport`) to avoid CI cache corruption; report deploys even when tests fail.
 
 | Where | When |
 |-------|------|

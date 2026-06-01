@@ -33,6 +33,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      GRADLE_USER_HOME: ${{ runner.temp }}/gradle-home
+      GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.caching=false -Dorg.gradle.parallel=false
 
     steps:
       - name: Checkout
@@ -43,7 +46,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
 
       - name: Resolve suite
         run: |
@@ -57,30 +59,25 @@ jobs:
         if: env.SUITE == 'ui' || env.SUITE == 'e2e' || env.SUITE == 'smoke' || env.SUITE == 'regression' || env.SUITE == 'all'
         run: |
           chmod +x gradlew
-          ./gradlew playwrightInstall --no-daemon
-          sudo ./gradlew playwrightInstallDeps --no-daemon
+          ./gradlew playwrightInstall --no-daemon --no-build-cache
+          sudo -E env "GRADLE_USER_HOME=$GRADLE_USER_HOME" ./gradlew playwrightInstallDeps --no-daemon --no-build-cache
 
-      - name: Run tests
+      - name: Run tests and generate Allure report
         id: tests
         continue-on-error: true
         run: |
           chmod +x gradlew
           GRADLE_PROPS="-Dreporting.onFailure=false -Dui.headless=true"
+          GRADLE_FLAGS="--no-daemon --no-build-cache"
           case "$SUITE" in
-            api)        ./gradlew apiTest $GRADLE_PROPS --no-daemon ;;
-            ui)         ./gradlew uiTest $GRADLE_PROPS --no-daemon ;;
-            e2e)        ./gradlew e2eTest $GRADLE_PROPS --no-daemon ;;
-            smoke)      ./gradlew smokeTest $GRADLE_PROPS --no-daemon ;;
-            regression) ./gradlew regressionTest $GRADLE_PROPS --no-daemon ;;
-            all)        ./gradlew test $GRADLE_PROPS --no-daemon ;;
+            api)        ./gradlew apiTest allureReport $GRADLE_PROPS $GRADLE_FLAGS ;;
+            ui)         ./gradlew uiTest allureReport $GRADLE_PROPS $GRADLE_FLAGS ;;
+            e2e)        ./gradlew e2eTest allureReport $GRADLE_PROPS $GRADLE_FLAGS ;;
+            smoke)      ./gradlew smokeTest allureReport $GRADLE_PROPS $GRADLE_FLAGS ;;
+            regression) ./gradlew regressionTest allureReport $GRADLE_PROPS $GRADLE_FLAGS ;;
+            all)        ./gradlew test allureReport $GRADLE_PROPS $GRADLE_FLAGS ;;
             *)          echo "Unknown suite: $SUITE" && exit 1 ;;
           esac
-
-      - name: Generate Allure report
-        if: always()
-        run: |
-          chmod +x gradlew
-          ./gradlew allureReport --no-daemon
 
       - name: Upload Allure report artifact
         if: always()
